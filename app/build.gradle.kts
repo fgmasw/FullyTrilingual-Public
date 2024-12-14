@@ -58,9 +58,9 @@ dependencies {
     implementation(libs.androidx.material3)
 
     // Room dependencies (Usando alias)
-    implementation(libs.androidx.room.runtime)
-    kapt(libs.androidx.room.compiler)
-    implementation(libs.androidx.room.ktx)
+    implementation("androidx.room:room-runtime:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
 
     // ViewModel Compose
     implementation(libs.androidx.lifecycle.viewmodel.compose)
