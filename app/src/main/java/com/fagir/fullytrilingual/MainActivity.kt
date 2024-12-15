@@ -20,15 +20,20 @@ class MainActivity : ComponentActivity() {
                 navController = navController,
                 startDestination = "home"
             ) {
+                // Pantalla de inicio
                 composable("home") {
                     HomeScreenPlaceholder(navController = navController)
                 }
+
+                // Pantalla para agregar palabras
                 composable("addWord/{baseLanguage}") { backStackEntry ->
                     val baseLanguage = backStackEntry.arguments?.getString("baseLanguage") ?: "es"
                     AddWordScreenPlaceholder(baseLanguage = baseLanguage)
                 }
+
+                // Pantalla para mostrar la lista de palabras
                 composable("wordList") {
-                    WordListScreenPlaceholder(navController = navController)
+                    WordListScreenPlaceholder()
                 }
             }
         }
