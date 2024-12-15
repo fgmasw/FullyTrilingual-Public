@@ -17,14 +17,17 @@ import kotlinx.coroutines.withContext
 @Composable
 fun AddWordScreenPlaceholder() {
     var word by remember { mutableStateOf("") }
-    var phrase by remember { mutableStateOf("") }
+    var translation1 by remember { mutableStateOf("") }
+    var translation2 by remember { mutableStateOf("") }
+    var phraseBase by remember { mutableStateOf("") }
+    var phraseTranslation1 by remember { mutableStateOf("") }
+    var phraseTranslation2 by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val db = AppDatabase.getDatabase(context)
     val wordDao = db.wordDao()
 
-    // Estado para manejar el indicador de carga
     var isLoading by remember { mutableStateOf(false) }
 
     Column(
@@ -36,8 +39,7 @@ fun AddWordScreenPlaceholder() {
     ) {
         Text(text = "Add Word Placeholder")
 
-        Spacer(modifier = Modifier.height(16.dp))
-
+        Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = word,
             onValueChange = { word = it },
@@ -45,49 +47,83 @@ fun AddWordScreenPlaceholder() {
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
+        Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
-            value = phrase,
-            onValueChange = { phrase = it },
-            label = { Text(text = "Phrase") },
+            value = translation1,
+            onValueChange = { translation1 = it },
+            label = { Text(text = "Translation 1") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = translation2,
+            onValueChange = { translation2 = it },
+            label = { Text(text = "Translation 2") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = phraseBase,
+            onValueChange = { phraseBase = it },
+            label = { Text(text = "Phrase (Base Language)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = phraseTranslation1,
+            onValueChange = { phraseTranslation1 = it },
+            label = { Text(text = "Phrase (Translation 1)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = phraseTranslation2,
+            onValueChange = { phraseTranslation2 = it },
+            label = { Text(text = "Phrase (Translation 2)") },
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-
         Button(
             onClick = {
                 coroutineScope.launch {
-                    isLoading = true // Mostrar el indicador de carga
+                    isLoading = true
                     try {
-                        withContext(Dispatchers.IO) {
-                            wordDao.insertWord(Word(word = word, phrase = phrase))
+                        val newWord = Word(
+                            baseLanguage = "es",
+                            word = word,
+                            translation1 = translation1,
+                            translation2 = translation2,
+                            phraseBase = phraseBase,
+                            phraseTranslation1 = phraseTranslation1,
+                            phraseTranslation2 = phraseTranslation2
+                        )
+
+                        val insertResult = withContext(Dispatchers.IO) {
+                            wordDao.insertWord(newWord)
                         }
-                        withContext(Dispatchers.Main) {
-                            snackbarHostState.showSnackbar("Word saved!")
-                            word = ""
-                            phrase = ""
-                        }
+                        snackbarHostState.showSnackbar("Word saved! ID: $insertResult")
+                        word = ""
+                        translation1 = ""
+                        translation2 = ""
+                        phraseBase = ""
+                        phraseTranslation1 = ""
+                        phraseTranslation2 = ""
                     } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            snackbarHostState.showSnackbar("Error saving word!")
-                        }
+                        snackbarHostState.showSnackbar("Error: ${e.message}")
                     } finally {
-                        isLoading = false // Ocultar el indicador de carga
+                        isLoading = false
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = word.isNotBlank() && phrase.isNotBlank() && !isLoading // Deshabilitar si está vacío o cargando
+            enabled = !isLoading
         ) {
-            Text(text = if (isLoading) "Saving..." else "Save Word")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (isLoading) {
-            CircularProgressIndicator()
+            Text(if (isLoading) "Saving..." else "Save Word")
         }
 
         SnackbarHost(hostState = snackbarHostState)
