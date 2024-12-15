@@ -9,7 +9,6 @@ import com.fagir.fullytrilingual.data.local.entities.Word
 
 @Database(entities = [Word::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
-
     abstract fun wordDao(): WordDao
 
     companion object {
@@ -21,7 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "fully_trilingual_database"
+                    "words_database"
                 ).build()
                 INSTANCE = instance
                 instance
