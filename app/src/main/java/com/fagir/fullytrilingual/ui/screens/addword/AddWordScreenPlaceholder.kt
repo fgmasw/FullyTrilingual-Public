@@ -15,7 +15,14 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddWordScreenPlaceholder() {
+fun AddWordScreenPlaceholder(baseLanguage: String) {
+    val labels = when (baseLanguage) {
+        "es" -> listOf("Palabra", "Traducción 1", "Traducción 2", "Frase (Idioma Base)", "Frase (Traducción 1)", "Frase (Traducción 2)")
+        "en" -> listOf("Word", "Translation 1", "Translation 2", "Phrase (Base Language)", "Phrase (Translation 1)", "Phrase (Translation 2)")
+        "pt" -> listOf("Palavra", "Tradução 1", "Tradução 2", "Frase (Idioma Base)", "Frase (Tradução 1)", "Frase (Tradução 2)")
+        else -> listOf("Word", "Translation 1", "Translation 2", "Phrase (Base Language)", "Phrase (Translation 1)", "Phrase (Translation 2)")
+    }
+
     var word by remember { mutableStateOf("") }
     var translation1 by remember { mutableStateOf("") }
     var translation2 by remember { mutableStateOf("") }
@@ -37,13 +44,13 @@ fun AddWordScreenPlaceholder() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "Add Word Placeholder")
+        Text(text = "Add Word Screen (Language: $baseLanguage)")
 
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = word,
             onValueChange = { word = it },
-            label = { Text(text = "Word") },
+            label = { Text(text = labels[0]) },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -51,7 +58,7 @@ fun AddWordScreenPlaceholder() {
         OutlinedTextField(
             value = translation1,
             onValueChange = { translation1 = it },
-            label = { Text(text = "Translation 1") },
+            label = { Text(text = labels[1]) },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -59,7 +66,7 @@ fun AddWordScreenPlaceholder() {
         OutlinedTextField(
             value = translation2,
             onValueChange = { translation2 = it },
-            label = { Text(text = "Translation 2") },
+            label = { Text(text = labels[2]) },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -67,7 +74,7 @@ fun AddWordScreenPlaceholder() {
         OutlinedTextField(
             value = phraseBase,
             onValueChange = { phraseBase = it },
-            label = { Text(text = "Phrase (Base Language)") },
+            label = { Text(text = labels[3]) },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -75,7 +82,7 @@ fun AddWordScreenPlaceholder() {
         OutlinedTextField(
             value = phraseTranslation1,
             onValueChange = { phraseTranslation1 = it },
-            label = { Text(text = "Phrase (Translation 1)") },
+            label = { Text(text = labels[4]) },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -83,7 +90,7 @@ fun AddWordScreenPlaceholder() {
         OutlinedTextField(
             value = phraseTranslation2,
             onValueChange = { phraseTranslation2 = it },
-            label = { Text(text = "Phrase (Translation 2)") },
+            label = { Text(text = labels[5]) },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -94,7 +101,7 @@ fun AddWordScreenPlaceholder() {
                     isLoading = true
                     try {
                         val newWord = Word(
-                            baseLanguage = "es",
+                            baseLanguage = baseLanguage,
                             word = word,
                             translation1 = translation1,
                             translation2 = translation2,

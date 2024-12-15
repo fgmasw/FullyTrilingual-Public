@@ -1,59 +1,89 @@
-@file:OptIn(ExperimentalMaterial3Api::class) // Opt-In aplicado a todo el archivo
-
 package com.fagir.fullytrilingual.ui.screens.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.Composable
 
 @Composable
 fun HomeScreenPlaceholder(navController: NavController) {
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Home Screen") }
+    var expanded by remember { mutableStateOf(false) }
+    var selectedLanguage by remember { mutableStateOf("es") }
+
+    val languages = listOf("es" to "Español", "en" to "English", "pt" to "Português")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Dropdown trigger
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(8.dp)
+        ) {
+            Text(
+                text = languages.firstOrNull { it.first == selectedLanguage }?.second ?: "Seleccione un idioma",
+                modifier = Modifier.padding(8.dp)
             )
         }
-    ) { innerPadding ->
-        // Cuerpo de la pantalla con botones
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Texto de placeholder
-            Text(
-                text = "This is the Home Screen Placeholder.",
-                modifier = Modifier.padding(bottom = 32.dp) // Espaciado debajo del texto
-            )
 
-            // Botón para navegar a Add Word Screen
-            Button(
-                onClick = { navController.navigate("addWord") },
-                modifier = Modifier.fillMaxWidth(0.8f) // Botón ancho
+        // Dropdown content
+        if (expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
             ) {
-                Text("Go to Add Word Screen")
+                languages.forEach { language ->
+                    BasicText(
+                        text = language.second,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedLanguage = language.first
+                                expanded = false
+                            }
+                            .padding(8.dp)
+                    )
+                }
             }
+        }
 
-            Spacer(modifier = Modifier.height(16.dp)) // Espaciado entre botones
+        Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón para navegar a Word List Screen
-            Button(
-                onClick = { navController.navigate("wordList") },
-                modifier = Modifier.fillMaxWidth(0.8f) // Botón ancho
-            ) {
-                Text("Go to Word List Screen")
-            }
+        Button(onClick = {
+            navController.navigate("addWord/$selectedLanguage")
+        }) {
+            Text(text = "Go to Add Word Screen")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(onClick = {
+            navController.navigate("wordList")
+        }) {
+            Text(text = "Navigate to Word List Screen")
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun HomeScreenPlaceholderPreview() {
+    val navController = rememberNavController()
+    HomeScreenPlaceholder(navController = navController)
 }
