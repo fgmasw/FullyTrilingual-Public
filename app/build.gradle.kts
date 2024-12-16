@@ -49,18 +49,24 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation (libs.kotlinx.coroutines.core)
+    implementation (libs.kotlinx.coroutines.android)
 
-    // Jetpack Compose
+
+    // Jetpack Compose BOM
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material) // Material 2
+    implementation(libs.androidx.runtime) // Compose Runtime
+    implementation(libs.androidx.ui.v176) // Compose Runtime
 
     // Room dependencies (Usando alias)
-    implementation("androidx.room:room-runtime:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
+    implementation(libs.androidx.room.runtime.v261)
+    kapt(libs.androidx.room.compiler.v261)
+    implementation(libs.androidx.room.ktx.v261)
 
     // ViewModel Compose
     implementation(libs.androidx.lifecycle.viewmodel.compose)

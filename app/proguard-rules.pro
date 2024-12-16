@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+-dontwarn android.database.**
+-dontwarn dalvik.system.VMDebug
+-keepattributes *Annotation*
+-keep class androidx.** { *; }
+-keep class kotlinx.** { *; }
+-keep class android.os.** { *; }
+-dontwarn android.os.**
