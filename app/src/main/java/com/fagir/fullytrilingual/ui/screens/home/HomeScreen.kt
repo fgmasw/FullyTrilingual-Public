@@ -1,9 +1,6 @@
 package com.fagir.fullytrilingual.ui.screens.home
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.* // Para fillMaxSize, padding, etc.
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
@@ -25,14 +23,15 @@ fun HomeScreen(
     val languages = listOf("es" to "Español", "en" to "English", "pt" to "Português")
     val selectedLanguage by homeViewModel.selectedLanguage.collectAsState()
 
+    // Estado para controlar el menú desplegable
     var expanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(60.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
         Text(
             text = "Seleccione un idioma",
@@ -40,44 +39,55 @@ fun HomeScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .border(1.dp, Color.Gray, RoundedCornerShape(8.dp)) // Ahora debería funcionar
-                .clickable { expanded = !expanded }
-                .padding(12.dp)
-        ) {
-            Text(
-                text = languages.firstOrNull { it.first == selectedLanguage }?.second
-                    ?: "Seleccione un idioma",
-                fontSize = 16.sp,
-                color = Color.Black
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        DropdownMenu(
+        // Caja que controla el campo y el menú desplegable clásico
+        ExposedDropdownMenuBox(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onExpandedChange = { expanded = !expanded }
         ) {
-            languages.forEach { language ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = language.second,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
-                        )
-                    },
-                    onClick = {
-                        homeViewModel.updateSelectedLanguage(language.first)
-                        expanded = false
-                    }
+            // Campo de texto que muestra el idioma seleccionado
+            TextField(
+                value = languages.firstOrNull { it.first == selectedLanguage }?.second ?: "Seleccione un idioma",
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .menuAnchor() // Asegura que el menú se ancle al campo
+                    .fillMaxWidth(0.8f),
+                trailingIcon = {
+                    // Icono que indica que es un campo desplegable
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                shape = RoundedCornerShape(8.dp),
+                colors = TextFieldDefaults.textFieldColors(
+                    containerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Gray,
+                    unfocusedIndicatorColor = Color.Gray
                 )
+            )
+
+            // Menú desplegable clásico
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                languages.forEach { language ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = language.second,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
+                            )
+                        },
+                        onClick = {
+                            homeViewModel.updateSelectedLanguage(language.first)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        // Separador y botones, siempre visibles
+        Spacer(modifier = Modifier.height(170.dp))
 
         Button(
             onClick = { navController.navigate("addWord/${selectedLanguage}") },
@@ -86,7 +96,7 @@ fun HomeScreen(
                 .padding(vertical = 8.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Go to Add Word Screen", fontSize = 16.sp, textAlign = TextAlign.Center)
+            Text("Ir a Agregar Palabra", fontSize = 16.sp, textAlign = TextAlign.Center)
         }
 
         Button(
@@ -96,7 +106,7 @@ fun HomeScreen(
                 .padding(vertical = 8.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Navigate to Word List Screen", fontSize = 16.sp, textAlign = TextAlign.Center)
+            Text("Ir a Lista de Palabras", fontSize = 16.sp, textAlign = TextAlign.Center)
         }
     }
 }
