@@ -11,7 +11,7 @@ import androidx.navigation.compose.rememberNavController
 import com.fagir.fullytrilingual.data.local.database.AppDatabase
 import com.fagir.fullytrilingual.data.repository.WordRepository
 import com.fagir.fullytrilingual.ui.screens.addword.AddWordScreen
-import com.fagir.fullytrilingual.ui.screens.editword.EditWordScreen  // ← Importa tu nueva pantalla de edición
+import com.fagir.fullytrilingual.ui.screens.editword.EditWordScreen
 import com.fagir.fullytrilingual.ui.screens.home.HomeScreen
 import com.fagir.fullytrilingual.ui.screens.wordlist.WordListScreen
 import com.fagir.fullytrilingual.ui.theme.FullyTrilingualTheme
@@ -41,12 +41,17 @@ fun AppNavHost(
 ) {
     NavHost(navController = navController, startDestination = "home") {
 
-        // 1) Pantalla de inicio
+        // Pantalla de inicio
         composable("home") {
-            HomeScreen(navController = navController)
+            // Aquí le pasamos el repository para que en HomeScreen
+            // se pueda "montar" el WordListViewModel en secreto (hack).
+            HomeScreen(
+                navController = navController,
+                repository = repository
+            )
         }
 
-        // 2) Pantalla para agregar una palabra con el idioma seleccionado
+        // Pantalla para agregar una palabra con el idioma seleccionado
         composable("addWord/{language}") { backStackEntry ->
             val language = backStackEntry.arguments?.getString("language") ?: "es"
             AddWordScreen(
@@ -56,15 +61,15 @@ fun AppNavHost(
             )
         }
 
-        // 3) Pantalla que muestra la lista de palabras almacenadas
+        // Pantalla que muestra la lista de palabras almacenadas
         composable("wordList") {
             WordListScreen(
                 repository = repository,
-                navController = navController  // ← Pasamos el navController para editar
+                navController = navController
             )
         }
 
-        // 4) Pantalla para editar una palabra específica
+        // Pantalla para editar una palabra específica
         // Se recibe el "wordId" seleccionado en WordListScreen
         composable("editWord/{wordId}") { backStackEntry ->
             val wordIdString = backStackEntry.arguments?.getString("wordId") ?: "0"
