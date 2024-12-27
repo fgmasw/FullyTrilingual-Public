@@ -20,6 +20,10 @@ class WordListViewModel(private val repository: WordRepository) : ViewModel() {
         getAllWords()
     }
 
+    /**
+     * Carga todas las palabras desde la base de datos
+     * y actualiza el StateFlow para que la UI se recomponga.
+     */
     private fun getAllWords() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -32,13 +36,33 @@ class WordListViewModel(private val repository: WordRepository) : ViewModel() {
         }
     }
 
+    /**
+     * Elimina la palabra con el ID especificado y recarga la lista.
+     */
     fun deleteWord(wordId: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 repository.deleteWordById(wordId)
                 getAllWords()
+                Log.d("WordListViewModel", "Deleted word with id: $wordId")
             } catch (e: Exception) {
                 Log.e("WordListViewModel", "Error deleting word", e)
+            }
+        }
+    }
+
+    /**
+     * (Opcional) Actualiza una palabra existente y recarga la lista.
+     * Útil si se decide manejar la edición aquí en lugar de un EditWordViewModel.
+     */
+    fun updateWord(updatedWord: Word) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repository.updateWord(updatedWord)
+                getAllWords()
+                Log.d("WordListViewModel", "Updated word with id: ${updatedWord.id}")
+            } catch (e: Exception) {
+                Log.e("WordListViewModel", "Error updating word", e)
             }
         }
     }

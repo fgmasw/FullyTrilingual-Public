@@ -10,35 +10,45 @@ import kotlinx.coroutines.launch
 
 class AddWordViewModel(private val repository: WordRepository) : ViewModel() {
 
+    /**
+     * Inserta una nueva palabra según la estructura actual:
+     * - wordEs, wordEn, wordPt
+     * - phraseEs, phraseEn, phrasePt
+     *
+     * Valida que al menos los campos de palabra no estén vacíos.
+     */
     fun insertWord(
-        baseLanguage: String,
-        word: String,
-        translation1: String,
-        translation2: String,
-        phraseBase: String,
-        phraseTranslation1: String,
-        phraseTranslation2: String
+        wordEs: String,
+        wordEn: String,
+        wordPt: String,
+        phraseEs: String,
+        phraseEn: String,
+        phrasePt: String
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                Log.d("AddWordViewModel", "Inserting word: $word ($baseLanguage)")
-                if (word.isBlank() || translation1.isBlank() || translation2.isBlank()) {
-                    throw IllegalArgumentException("Word and translations must not be empty.")
+                Log.d("AddWordViewModel", "Insertando palabra: ES=($wordEs), EN=($wordEn), PT=($wordPt)")
+
+                // Validación mínima: no permitir palabras vacías
+                if (wordEs.isBlank() || wordEn.isBlank() || wordPt.isBlank()) {
+                    throw IllegalArgumentException("Las palabras en ES/EN/PT no deben estar vacías.")
                 }
 
+                // Construimos la nueva entidad con la estructura actual
                 val newWord = Word(
-                    baseLanguage = baseLanguage,
-                    word = word,
-                    translation1 = translation1,
-                    translation2 = translation2,
-                    phraseBase = phraseBase,
-                    phraseTranslation1 = phraseTranslation1,
-                    phraseTranslation2 = phraseTranslation2
+                    wordEs = wordEs,
+                    wordEn = wordEn,
+                    wordPt = wordPt,
+                    phraseEs = phraseEs,
+                    phraseEn = phraseEn,
+                    phrasePt = phrasePt
                 )
+
+                // Insertamos en la base de datos
                 repository.insertWord(newWord)
-                Log.d("AddWordViewModel", "Word inserted successfully.")
+                Log.d("AddWordViewModel", "Palabra insertada correctamente.")
             } catch (e: Exception) {
-                Log.e("AddWordViewModel", "Error inserting word", e)
+                Log.e("AddWordViewModel", "Error al insertar la palabra", e)
             }
         }
     }

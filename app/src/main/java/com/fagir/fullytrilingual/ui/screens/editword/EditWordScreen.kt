@@ -1,4 +1,4 @@
-package com.fagir.fullytrilingual.ui.screens.addword
+package com.fagir.fullytrilingual.ui.screens.editword
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,21 +8,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.fagir.fullytrilingual.data.local.entities.Word
 import com.fagir.fullytrilingual.data.repository.WordRepository
-import com.fagir.fullytrilingual.utils.strings.Strings  // <-- Importar tu archivo de traducciones
+import com.fagir.fullytrilingual.ui.screens.home.HomeViewModel  // <-- Para leer el idioma
+import com.fagir.fullytrilingual.utils.strings.Strings         // <-- Importar tu archivo de traducciones
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddWordScreen(
+fun EditWordScreen(
     navController: NavHostController,
-    language: String,           // Se recibe el idioma seleccionado
+    wordId: Int,                    // ID de la palabra a editar
     repository: WordRepository
 ) {
-    // Usamos el ViewModel con su Factory, inyectando el repositorio
-    val addWordViewModel: AddWordViewModel = viewModel(factory = AddWordViewModelFactory(repository))
+    // ViewModel para editar
+    val editWordViewModel: EditWordViewModel = viewModel(
+        factory = EditWordViewModelFactory(repository)
+    )
 
-    // Estados para cada campo de la entidad Word
+    // ViewModel para obtener el idioma seleccionado
+    val homeViewModel: HomeViewModel = viewModel()
+    val language = homeViewModel.selectedLanguage.collectAsState().value
+
+    // Al ingresar a la pantalla, cargamos la palabra desde la BD.
+    LaunchedEffect(wordId) {
+        editWordViewModel.loadWord(wordId)
+    }
+
+    // Observa el estado de la palabra en el ViewModel de edición
+    val palabraActual by editWordViewModel.currentWord.collectAsState()
+
+    // Estados de los campos; se llenarán cuando `palabraActual` cambie
     var palabraEs by remember { mutableStateOf("") }
     var palabraEn by remember { mutableStateOf("") }
     var palabraPt by remember { mutableStateOf("") }
@@ -30,13 +46,24 @@ fun AddWordScreen(
     var fraseEn by remember { mutableStateOf("") }
     var frasePt by remember { mutableStateOf("") }
 
-    // Control de carga y notificaciones
-    var isLoading by remember { mutableStateOf(false) }
+    // Precarga de datos cuando la palabra se obtiene de la BD
+    LaunchedEffect(palabraActual) {
+        palabraActual?.let { word ->
+            palabraEs = word.wordEs
+            palabraEn = word.wordEn
+            palabraPt = word.wordPt
+            fraseEs = word.phraseEs
+            fraseEn = word.phraseEn
+            frasePt = word.phrasePt
+        }
+    }
+
+    val isLoading by editWordViewModel.isLoading.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -46,15 +73,15 @@ fun AddWordScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Título dinámico con el idioma
+            // Título dinámico: "Editar palabra" + (ID: x)
             Text(
-                text = (Strings.addWordTitle[language] ?: "Agregar palabra nueva") +
-                        " (Idioma: ${language.uppercase()})",
+                text = (Strings.editWordTitle[language] ?: "Editar palabra") +
+                        " (ID: $wordId)",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // Campos para la palabra en cada idioma
+            // Campos para editar - Usamos las llaves de tu Strings.kt
             OutlinedTextField(
                 value = palabraEs,
                 onValueChange = { palabraEs = it },
@@ -79,7 +106,6 @@ fun AddWordScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campos para la frase de ejemplo en cada idioma
             OutlinedTextField(
                 value = fraseEs,
                 onValueChange = { fraseEs = it },
@@ -104,55 +130,44 @@ fun AddWordScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón para guardar
+            // Botón para actualizar
             Button(
                 onClick = {
-                    // Validamos que al menos los campos de palabra ES/EN/PT no estén vacíos
+                    // Validamos que al menos ES, EN, PT no estén vacíos
                     if (palabraEs.isNotBlank() && palabraEn.isNotBlank() && palabraPt.isNotBlank()) {
-                        isLoading = true
-
-                        // Insertamos la palabra usando el ViewModel
-                        addWordViewModel.insertWord(
-                            wordEs = palabraEs,
-                            wordEn = palabraEn,
-                            wordPt = palabraPt,
-                            phraseEs = fraseEs,
-                            phraseEn = fraseEn,
-                            phrasePt = frasePt
-                        )
-
-                        isLoading = false
                         scope.launch {
-                            // Texto de éxito en el Snackbar (successWordSaved)
+                            editWordViewModel.updateWord(
+                                Word(
+                                    id = wordId,
+                                    wordEs = palabraEs,
+                                    wordEn = palabraEn,
+                                    wordPt = palabraPt,
+                                    phraseEs = fraseEs,
+                                    phraseEn = fraseEn,
+                                    phrasePt = frasePt
+                                )
+                            )
+                            // Mostramos el mensaje de éxito (successWordUpdated)
                             snackbarHostState.showSnackbar(
-                                Strings.successWordSaved[language] ?: "Palabra guardada correctamente."
+                                Strings.successWordUpdated[language] ?: "Cambios guardados correctamente."
                             )
                         }
-
-                        // Limpiamos los campos tras guardar
-                        palabraEs = ""
-                        palabraEn = ""
-                        palabraPt = ""
-                        fraseEs = ""
-                        fraseEn = ""
-                        frasePt = ""
-
                     } else {
                         scope.launch {
-                            // Texto de error en el Snackbar (errorFieldsEmpty)
+                            // Error si faltan campos obligatorios
                             snackbarHostState.showSnackbar(
-                                Strings.errorFieldsEmpty[language] ?: "Por favor, completa los campos obligatorios."
+                                Strings.errorFieldsEmpty[language] ?: "Campos obligatorios faltantes."
                             )
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Si estamos guardando, “Guardando...”; si no, el texto del diccionario (buttonSave)
+                // Si estamos guardando, "Guardando..."; sino, "Guardar cambios"
                 Text(
                     if (isLoading) "Guardando..."
-                    else (Strings.buttonSave[language] ?: "Guardar")
+                    else (Strings.buttonSave[language] ?: "Guardar cambios")
                 )
             }
 
