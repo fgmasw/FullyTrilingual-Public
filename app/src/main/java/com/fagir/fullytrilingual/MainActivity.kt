@@ -20,11 +20,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1) Obtén la instancia de la BD y el repositorio
+        // 1) Obtenemos la instancia de la base de datos y el repositorio
         val database = AppDatabase.getDatabase(this)
         val repository = WordRepository(database.wordDao())
 
-        // 2) Configura la UI con Jetpack Compose
+        // 2) Iniciamos la interfaz de usuario con Jetpack Compose
         setContent {
             FullyTrilingualTheme {
                 val navController = rememberNavController()
@@ -36,22 +36,24 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavHost(
+    // Controlador para manejar la navegación
     navController: NavHostController,
+
+    // Repositorio para trabajar con la base de datos
     repository: WordRepository
 ) {
     NavHost(navController = navController, startDestination = "home") {
 
-        // Pantalla de inicio
+        // Pantalla principal o de inicio
         composable("home") {
-            // Aquí le pasamos el repository para que en HomeScreen
-            // se pueda "montar" el WordListViewModel en secreto (hack).
+            // Enviamos el repositorio a HomeScreen para “montar” el WordListViewModel (hack).
             HomeScreen(
                 navController = navController,
                 repository = repository
             )
         }
 
-        // Pantalla para agregar una palabra con el idioma seleccionado
+        // Pantalla para agregar una palabra, recibiendo el idioma seleccionado
         composable("addWord/{language}") { backStackEntry ->
             val language = backStackEntry.arguments?.getString("language") ?: "es"
             AddWordScreen(
@@ -61,7 +63,7 @@ fun AppNavHost(
             )
         }
 
-        // Pantalla que muestra la lista de palabras almacenadas
+        // Pantalla que muestra la lista de palabras guardadas
         composable("wordList") {
             WordListScreen(
                 repository = repository,
@@ -69,8 +71,8 @@ fun AppNavHost(
             )
         }
 
-        // Pantalla para editar una palabra específica
-        // Se recibe el "wordId" seleccionado en WordListScreen
+        // Pantalla para editar una palabra específica:
+        // se recibe "wordId" seleccionado en WordListScreen
         composable("editWord/{wordId}") { backStackEntry ->
             val wordIdString = backStackEntry.arguments?.getString("wordId") ?: "0"
             val wordId = wordIdString.toInt()

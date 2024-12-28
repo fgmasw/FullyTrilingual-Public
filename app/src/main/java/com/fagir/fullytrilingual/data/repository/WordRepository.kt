@@ -5,24 +5,20 @@ import com.fagir.fullytrilingual.data.local.entities.Word
 
 class WordRepository(private val wordDao: WordDao) {
 
-    // Insertar una nueva palabra
+    // Inserta una nueva palabra en la base de datos.
     suspend fun insertWord(word: Word): Long {
         return wordDao.insertWord(word)
     }
 
-    // Obtener todas las palabras
+    // Retorna todas las palabras guardadas.
     suspend fun getAllWords(): List<Word> {
         return wordDao.getAllWords()
     }
 
-    /**
-     * Obtener palabras filtradas por idioma.
-     * Dado que en WordDao ahora tenemos:
-     *  - getWordsSpanish()    -> wordEs <> ''
-     *  - getWordsEnglish()    -> wordEn <> ''
-     *  - getWordsPortuguese() -> wordPt <> ''
-     * Mapeamos "es", "en", "pt" a las consultas específicas.
-     */
+    // Devuelve palabras según el idioma:
+    // es -> palabra en español
+    // en -> palabra en inglés
+    // pt -> palabra en portugués
     suspend fun getWordsByLanguage(language: String): List<Word> {
         return when (language) {
             "es" -> wordDao.getWordsSpanish()
@@ -32,23 +28,17 @@ class WordRepository(private val wordDao: WordDao) {
         }
     }
 
-    // Eliminar una palabra por su ID
+    // Borra una palabra de la base de datos según su ID.
     suspend fun deleteWordById(id: Int) {
         wordDao.deleteWordById(id)
     }
 
-    /**
-     * Devuelve la palabra con el ID especificado (o null si no existe).
-     * Requiere que el DAO tenga un método getWordById(id: Int).
-     */
+    // Busca una palabra según su ID. Si no existe, regresa null.
     suspend fun getWordById(id: Int): Word? {
         return wordDao.getWordById(id)
     }
 
-    /**
-     * Actualiza una palabra existente en la base de datos.
-     * Requiere que el DAO tenga un método updateWord(word: Word).
-     */
+    // Actualiza los datos de una palabra en la base de datos.
     suspend fun updateWord(word: Word) {
         wordDao.updateWord(word)
     }

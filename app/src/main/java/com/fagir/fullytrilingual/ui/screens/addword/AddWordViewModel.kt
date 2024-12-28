@@ -10,13 +10,10 @@ import kotlinx.coroutines.launch
 
 class AddWordViewModel(private val repository: WordRepository) : ViewModel() {
 
-    /**
-     * Inserta una nueva palabra según la estructura actual:
-     * - wordEs, wordEn, wordPt
-     * - phraseEs, phraseEn, phrasePt
-     *
-     * Valida que al menos los campos de palabra no estén vacíos.
-     */
+    // Inserta una nueva palabra, considerando:
+    // - wordEs, wordEn, wordPt
+    // - phraseEs, phraseEn, phrasePt
+    // Verificamos que los campos de palabras no estén vacíos.
     fun insertWord(
         wordEs: String,
         wordEn: String,
@@ -29,12 +26,12 @@ class AddWordViewModel(private val repository: WordRepository) : ViewModel() {
             try {
                 Log.d("AddWordViewModel", "Insertando palabra: ES=($wordEs), EN=($wordEn), PT=($wordPt)")
 
-                // Validación mínima: no permitir palabras vacías
+                // Revisamos que no estén vacíos los campos principales de la palabra
                 if (wordEs.isBlank() || wordEn.isBlank() || wordPt.isBlank()) {
                     throw IllegalArgumentException("Las palabras en ES/EN/PT no deben estar vacías.")
                 }
 
-                // Construimos la nueva entidad con la estructura actual
+                // Construimos la entidad Word con los datos que ingresó el usuario
                 val newWord = Word(
                     wordEs = wordEs,
                     wordEn = wordEn,
@@ -44,9 +41,10 @@ class AddWordViewModel(private val repository: WordRepository) : ViewModel() {
                     phrasePt = phrasePt
                 )
 
-                // Insertamos en la base de datos
+                // Llamamos al repositorio para guardarla en la base de datos
                 repository.insertWord(newWord)
                 Log.d("AddWordViewModel", "Palabra insertada correctamente.")
+
             } catch (e: Exception) {
                 Log.e("AddWordViewModel", "Error al insertar la palabra", e)
             }

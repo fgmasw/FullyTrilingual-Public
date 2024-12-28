@@ -10,35 +10,40 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.fagir.fullytrilingual.data.local.entities.Word
 import com.fagir.fullytrilingual.data.repository.WordRepository
-import com.fagir.fullytrilingual.ui.screens.home.HomeViewModel  // <-- Para leer el idioma
-import com.fagir.fullytrilingual.utils.strings.Strings         // <-- Importar tu archivo de traducciones
+import com.fagir.fullytrilingual.ui.screens.home.HomeViewModel  // Aquí tomamos el idioma actual
+import com.fagir.fullytrilingual.utils.strings.Strings         // Textos traducidos
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditWordScreen(
+    // Controlador de navegación
     navController: NavHostController,
-    wordId: Int,                    // ID de la palabra a editar
+
+    // ID de la palabra que queremos modificar
+    wordId: Int,
+
+    // Repositorio para manejar la base de datos
     repository: WordRepository
 ) {
-    // ViewModel para editar
+    // ViewModel que maneja la lógica de edición
     val editWordViewModel: EditWordViewModel = viewModel(
         factory = EditWordViewModelFactory(repository)
     )
 
-    // ViewModel para obtener el idioma seleccionado
+    // ViewModel para saber el idioma elegido por el usuario
     val homeViewModel: HomeViewModel = viewModel()
     val language = homeViewModel.selectedLanguage.collectAsState().value
 
-    // Al ingresar a la pantalla, cargamos la palabra desde la BD.
+    // Cuando entramos a esta pantalla, cargamos la palabra de la BD usando su ID
     LaunchedEffect(wordId) {
         editWordViewModel.loadWord(wordId)
     }
 
-    // Observa el estado de la palabra en el ViewModel de edición
+    // Observamos el estado actual de la palabra que se editará
     val palabraActual by editWordViewModel.currentWord.collectAsState()
 
-    // Estados de los campos; se llenarán cuando `palabraActual` cambie
+    // Variables que mostrarán los campos para la edición
     var palabraEs by remember { mutableStateOf("") }
     var palabraEn by remember { mutableStateOf("") }
     var palabraPt by remember { mutableStateOf("") }
@@ -46,7 +51,7 @@ fun EditWordScreen(
     var fraseEn by remember { mutableStateOf("") }
     var frasePt by remember { mutableStateOf("") }
 
-    // Precarga de datos cuando la palabra se obtiene de la BD
+    // Cuando recibimos la palabra, llenamos los campos con sus datos
     LaunchedEffect(palabraActual) {
         palabraActual?.let { word ->
             palabraEs = word.wordEs
@@ -62,6 +67,7 @@ fun EditWordScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // Estructura principal de la pantalla
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
@@ -73,7 +79,7 @@ fun EditWordScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Título dinámico: "Editar palabra" + (ID: x)
+            // Título que muestra "Editar palabra" más el ID de la palabra
             Text(
                 text = (Strings.editWordTitle[language] ?: "Editar palabra") +
                         " (ID: $wordId)",
@@ -81,7 +87,7 @@ fun EditWordScreen(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // Campos para editar - Usamos las llaves de tu Strings.kt
+            // Campo para la palabra en español
             OutlinedTextField(
                 value = palabraEs,
                 onValueChange = { palabraEs = it },
@@ -90,6 +96,7 @@ fun EditWordScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Campo para la palabra en inglés
             OutlinedTextField(
                 value = palabraEn,
                 onValueChange = { palabraEn = it },
@@ -98,6 +105,7 @@ fun EditWordScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Campo para la palabra en portugués
             OutlinedTextField(
                 value = palabraPt,
                 onValueChange = { palabraPt = it },
@@ -106,6 +114,7 @@ fun EditWordScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Campo para la frase en español
             OutlinedTextField(
                 value = fraseEs,
                 onValueChange = { fraseEs = it },
@@ -114,6 +123,7 @@ fun EditWordScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Campo para la frase en inglés
             OutlinedTextField(
                 value = fraseEn,
                 onValueChange = { fraseEn = it },
@@ -122,6 +132,7 @@ fun EditWordScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Campo para la frase en portugués
             OutlinedTextField(
                 value = frasePt,
                 onValueChange = { frasePt = it },
@@ -130,10 +141,10 @@ fun EditWordScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón para actualizar
+            // Botón para guardar los cambios
             Button(
                 onClick = {
-                    // Validamos que al menos ES, EN, PT no estén vacíos
+                    // Requerimos que ES, EN y PT tengan texto
                     if (palabraEs.isNotBlank() && palabraEn.isNotBlank() && palabraPt.isNotBlank()) {
                         scope.launch {
                             editWordViewModel.updateWord(
@@ -147,14 +158,14 @@ fun EditWordScreen(
                                     phrasePt = frasePt
                                 )
                             )
-                            // Mostramos el mensaje de éxito (successWordUpdated)
+                            // Mensaje de éxito en la parte inferior
                             snackbarHostState.showSnackbar(
                                 Strings.successWordUpdated[language] ?: "Cambios guardados correctamente."
                             )
                         }
                     } else {
                         scope.launch {
-                            // Error si faltan campos obligatorios
+                            // Si faltan palabras en los campos
                             snackbarHostState.showSnackbar(
                                 Strings.errorFieldsEmpty[language] ?: "Campos obligatorios faltantes."
                             )
@@ -164,7 +175,8 @@ fun EditWordScreen(
                 enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Si estamos guardando, "Guardando..."; sino, "Guardar cambios"
+                // Mostramos "Guardando..." mientras está ocupado,
+                // de lo contrario, "Guardar cambios" (o su traducción)
                 Text(
                     if (isLoading) "Guardando..."
                     else (Strings.buttonSave[language] ?: "Guardar cambios")
@@ -173,7 +185,7 @@ fun EditWordScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón para volver (buttonBackToList)
+            // Botón para regresar a la lista de palabras
             TextButton(onClick = { navController.popBackStack() }) {
                 Text(Strings.buttonBackToList[language] ?: "Volver a la lista")
             }

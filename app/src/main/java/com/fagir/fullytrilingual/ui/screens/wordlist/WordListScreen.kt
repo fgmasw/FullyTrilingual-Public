@@ -8,33 +8,50 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.fagir.fullytrilingual.data.local.entities.Word
 import com.fagir.fullytrilingual.data.repository.WordRepository
-import com.fagir.fullytrilingual.ui.screens.home.HomeViewModel  // <-- Para obtener el idioma
-import com.fagir.fullytrilingual.utils.strings.Strings         // <-- Para textos traducidos
+import com.fagir.fullytrilingual.ui.screens.home.HomeViewModel  // Para saber el idioma
+import com.fagir.fullytrilingual.utils.strings.Strings         // Para usar textos traducidos
 
 @Composable
 fun WordListScreen(
+    // Repositorio para manejar datos de palabras
     repository: WordRepository,
+
+    // Controlador para navegar entre pantallas
     navController: NavHostController
 ) {
-    // ViewModel para la lista
+    // ViewModel que maneja la lista de palabras
     val viewModel: WordListViewModel = viewModel(
         factory = WordListViewModelFactory(repository)
     )
-    // ViewModel para el idioma
+
+    // ViewModel que maneja el idioma que se está usando
     val homeViewModel: HomeViewModel = viewModel()
     val language = homeViewModel.selectedLanguage.collectAsState().value
 
+    // Observamos la lista de palabras y la dibujamos en pantalla
     val wordList = viewModel.wordList.collectAsState(initial = emptyList())
 
+    // Escuchamos el estado de la ruta actual del NavController
+    // para recargar la lista cada vez que regresemos a "wordList".
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+
+    LaunchedEffect(currentBackStackEntry) {
+        // Si la ruta actual es "wordList", volvemos a cargar
+        if (currentBackStackEntry?.destination?.route == "wordList") {
+            Log.d("WordListScreen", "Volvimos a WordList, recargamos los datos.")
+            viewModel.getAllWords()  // Me aseguré de que sea 'public' en tu ViewModel
+        }
+    }
+
+    // Lista perezosa que va mostrando cada WordListItem
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -45,13 +62,11 @@ fun WordListScreen(
                 word = word,
                 language = language,
                 onEdit = {
-                    // Navega a la pantalla de edición, pasando el ID de la palabra
-                    Log.d("WordListScreen", "Editing word with id: ${word.id}")
+                    Log.d("WordListScreen", "Editando palabra con id: ${word.id}")
                     navController.navigate("editWord/${word.id}")
                 },
                 onDelete = {
-                    // Elimina la palabra
-                    Log.d("WordListScreen", "Deleting word with id: ${word.id}")
+                    Log.d("WordListScreen", "Eliminando palabra con id: ${word.id}")
                     viewModel.deleteWord(word.id)
                 }
             )
@@ -60,14 +75,21 @@ fun WordListScreen(
 }
 
 /**
- * Muestra los campos de la entidad `Word` y dos IconButtons: Editar y Eliminar.
- * También traduce las etiquetas "Palabra (ES)", "Palabra (EN)", "Palabra (PT)", etc.
+ * Presenta la información de cada Word y ofrece íconos para editar o eliminar.
+ * Usa el idioma para mostrar etiquetas en ES/EN/PT.
  */
 @Composable
 fun WordListItem(
+    // La palabra a mostrar
     word: Word,
+
+    // Idioma actual para escoger las etiquetas
     language: String,
+
+    // Acción al pulsar el botón de editar
     onEdit: () -> Unit,
+
+    // Acción al pulsar el botón de eliminar
     onDelete: () -> Unit
 ) {
     Card(
@@ -81,26 +103,26 @@ fun WordListItem(
                 .padding(8.dp)
                 .fillMaxWidth()
         ) {
-            // Columna con los datos de la palabra
+            // Zona donde mostramos la info de la palabra
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(text = "ID: ${word.id}")
 
-                // Etiquetas y valores para las palabras
+                // Etiquetas y valores de las palabras
                 Text(text = "${Strings.wordEsLabel[language] ?: "Palabra (ES)"}: ${word.wordEs}")
                 Text(text = "${Strings.wordEnLabel[language] ?: "Palabra (EN)"}: ${word.wordEn}")
                 Text(text = "${Strings.wordPtLabel[language] ?: "Palabra (PT)"}: ${word.wordPt}")
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Etiquetas y valores para las frases
+                // Etiquetas y valores de las frases
                 Text(text = "${Strings.phraseEsLabel[language] ?: "Frase (ES)"}: ${word.phraseEs}")
                 Text(text = "${Strings.phraseEnLabel[language] ?: "Frase (EN)"}: ${word.phraseEn}")
                 Text(text = "${Strings.phrasePtLabel[language] ?: "Frase (PT)"}: ${word.phrasePt}")
             }
 
-            // Espacio para íconos (Editar, Eliminar)
+            // Fila con botones de editar y eliminar
             Row {
                 // Botón para editar
                 IconButton(onClick = onEdit) {

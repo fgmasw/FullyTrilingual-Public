@@ -6,12 +6,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * ViewModel encargado de manejar el idioma seleccionado
- * en la pantalla principal (HomeScreen).
+ * ViewModel que maneja el idioma seleccionado para la pantalla Home.
  */
 class HomeViewModel : ViewModel() {
 
-    // Almacenamos el idioma seleccionado; por defecto "es".
+    // Estado del idioma, por defecto "es" (español).
     private val _selectedLanguage = MutableStateFlow("es")
     val selectedLanguage: StateFlow<String> = _selectedLanguage
 
@@ -20,12 +19,11 @@ class HomeViewModel : ViewModel() {
     }
 
     /**
-     * Actualiza el idioma seleccionado.
-     * Todas las pantallas que observen selectedLanguage
-     * se recompondrán al cambiar este valor.
+     * Cambia el idioma y notifica a todas las pantallas
+     * que estén observando esta variable.
      */
     fun updateSelectedLanguage(language: String) {
-        Log.d("HomeViewModel", "Cambiando el idioma de ${_selectedLanguage.value} a $language")
+        Log.d("HomeViewModel", "Cambiando de ${_selectedLanguage.value} a $language")
         _selectedLanguage.value = language
     }
 }

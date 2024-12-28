@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.fagir.fullytrilingual.R       // <-- Import si necesitas R.*
+import com.fagir.fullytrilingual.R
 import com.fagir.fullytrilingual.data.repository.WordRepository
 import com.fagir.fullytrilingual.ui.screens.wordlist.WordListViewModel
 import com.fagir.fullytrilingual.ui.screens.wordlist.WordListViewModelFactory
@@ -24,29 +24,35 @@ import com.fagir.fullytrilingual.utils.strings.Strings
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    // Navegador para moverse entre pantallas
     navController: NavController,
+
+    // ViewModel donde guardamos el idioma seleccionado
     homeViewModel: HomeViewModel = viewModel(),
+
+    // Repositorio que usamos para precargar la lista de palabras
     repository: WordRepository
 ) {
-    // 1) "Montamos" WordListViewModel en secreto para precargar la lista
+    // 1) Montamos WordListViewModel sin usarlo directamente, para precargar datos en segundo plano
     val dummyListViewModel: WordListViewModel = viewModel(
         factory = WordListViewModelFactory(repository)
     )
-    // No lo usamos directamente, solo disparamos init { getAllWords() }
+    // No utilizamos dummyListViewModel aquí, pero llama a getAllWords() en su init.
 
-    // 2) Observamos el idioma seleccionado desde HomeViewModel
+    // 2) Observamos el idioma actual en HomeViewModel
     val language = homeViewModel.selectedLanguage.collectAsState().value
 
-    // 3) Lista de idiomas con su código y nombre
+    // 3) Definimos la lista de idiomas disponibles
     val languages = listOf(
         "es" to "Español",
         "en" to "Inglés",
         "pt" to "Portugués"
     )
 
-    // Control para el menú desplegable
+    // Control para mostrar/ocultar el menú desplegable
     var expanded by remember { mutableStateOf(false) }
 
+    // Column que estructura la pantalla principal
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -54,36 +60,33 @@ fun HomeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        // LOGO de la aplicación
-        // Asegúrate de que exista R.drawable.logo_fully (o el nombre que uses)
+        // LOGO de la app (imagen en drawable)
         Image(
             painter = painterResource(id = R.drawable.logo_fully),
             contentDescription = "Logo FullyTrilingual",
-            modifier = Modifier
-                .size(100.dp)
+            modifier = Modifier.size(100.dp)
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        // NOMBRE de la aplicación
+        // Texto con el nombre de la aplicación
         Text(
             text = "FullyTrilingual",
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Título / indicación para seleccionar idioma
+        // Título para que el usuario escoja el idioma
         Text(
             text = Strings.selectLanguageHint[language] ?: "Selecciona un idioma",
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // ExposedDropdownMenuBox para mostrar el menú de idiomas
+        // Caja que contiene un TextField y el menú desplegable de idiomas
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { expanded = !expanded }
         ) {
-            // Campo de texto con el idioma seleccionado
             TextField(
                 value = languages.firstOrNull { it.first == language }?.second
                     ?: (Strings.selectLanguageHint[language] ?: "Selecciona un idioma"),
@@ -103,7 +106,7 @@ fun HomeScreen(
                 )
             )
 
-            // Menú desplegable
+            // Lista desplegable con los idiomas
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
@@ -117,6 +120,7 @@ fun HomeScreen(
                             )
                         },
                         onClick = {
+                            // Actualiza el idioma en HomeViewModel
                             homeViewModel.updateSelectedLanguage(code)
                             expanded = false
                         }
@@ -125,10 +129,10 @@ fun HomeScreen(
             }
         }
 
-        // Espacio adicional antes de los botones
+        // Espacio antes de los botones de abajo
         Spacer(modifier = Modifier.height(170.dp))
 
-        // Botón para ir a "Agregar Palabra"
+        // Botón para ir a agregar una nueva palabra
         Button(
             onClick = { navController.navigate("addWord/$language") },
             modifier = Modifier
@@ -143,7 +147,7 @@ fun HomeScreen(
             )
         }
 
-        // Botón para ir a "Lista de Palabras"
+        // Botón para ver la lista de palabras
         Button(
             onClick = { navController.navigate("wordList") },
             modifier = Modifier

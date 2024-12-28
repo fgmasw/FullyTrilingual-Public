@@ -10,9 +10,16 @@ import androidx.compose.ui.Modifier
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WordInputField(
+    // Texto que describe para qué sirve este campo
     label: String,
+
+    // Valor actual que se muestra en el campo
     value: String,
+
+    // Acción cuando el usuario cambia el texto
     onValueChange: (String) -> Unit,
+
+    // Modificador para ajustar el estilo o tamaño, si se necesita
     modifier: Modifier = Modifier
 ) {
     OutlinedTextField(

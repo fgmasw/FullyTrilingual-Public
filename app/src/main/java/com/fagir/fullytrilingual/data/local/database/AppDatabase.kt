@@ -15,16 +15,18 @@ import kotlinx.coroutines.runBlocking
 @Database(entities = [Word::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
+    // Aquí definimos nuestra interfaz para acceder a WordDao.
     abstract fun wordDao(): WordDao
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        // Migración de la versión 2 a la versión 3
+        // Migración de la versión 2 a la 3.
+        // Esto ajusta la estructura de la tabla para las nuevas columnas ES, EN, PT.
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                // 1) Crear nueva tabla con columnas ES, EN, PT
+                // 1) Creamos la nueva tabla con los campos correctos.
                 database.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `words_new` (
@@ -39,15 +41,8 @@ abstract class AppDatabase : RoomDatabase() {
                     """.trimIndent()
                 )
 
-                // 2) Copiar los datos de la tabla antigua (versión 2) a la nueva
-                //    Suponiendo que en la versión 2 tenías:
-                //    - word = Español
-                //    - translation1 = Inglés
-                //    - translation2 = Portugués
-                //    - phraseBase = Español
-                //    - phraseTranslation1 = Inglés
-                //    - phraseTranslation2 = Portugués
-                //    Si tus datos estaban mapeados distinto, ajusta el SELECT.
+                // 2) Copiamos los datos de la tabla vieja a la nueva.
+                //    Ajustamos el SELECT según cómo estaban antes los campos.
                 database.execSQL(
                     """
                     INSERT INTO `words_new` (
@@ -71,26 +66,27 @@ abstract class AppDatabase : RoomDatabase() {
                     """.trimIndent()
                 )
 
-                // 3) Eliminar tabla antigua y renombrar
+                // 3) Borramos la tabla vieja y renombramos la nueva.
                 database.execSQL("DROP TABLE `words`")
                 database.execSQL("ALTER TABLE `words_new` RENAME TO `words`")
             }
         }
 
-        // Migración previa (1 a 2) si aún la necesitas
+        // Migración de la versión 1 a 2 (si hace falta).
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                // Tu migración anterior...
+                // Aquí irían los pasos para migrar de la versión 1 a la 2.
             }
         }
 
+        // Callback para cuando se crea la base de datos por primera vez.
+        // Pre-poblamos la tabla con datos iniciales.
         private val appDatabaseCallback = object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
                 Executors.newSingleThreadExecutor().execute {
                     INSTANCE?.let { database ->
                         val dao = database.wordDao()
-                        // Pre-poblar la BD con datos iniciales
                         PrepopulateData.getPrepopulatedWords().forEach { word ->
                             runBlocking {
                                 dao.insertWord(word)
@@ -101,6 +97,8 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Esta función devuelve la instancia de AppDatabase.
+        // Usa un bloqueo para que sea segura en hilos múltiples.
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -108,7 +106,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "words_database"
                 )
-                    // Incluimos TODAS las migraciones necesarias:
+                    // Agregamos las migraciones necesarias.
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .addCallback(appDatabaseCallback)
                     .build()

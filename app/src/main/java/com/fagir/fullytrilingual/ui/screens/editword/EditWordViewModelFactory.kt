@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.fagir.fullytrilingual.data.repository.WordRepository
 
+// Fábrica para crear instancias de EditWordViewModel.
+// Se asegura de inyectar el repositorio correcto.
 class EditWordViewModelFactory(
     private val repository: WordRepository
 ) : ViewModelProvider.Factory {
@@ -13,6 +15,6 @@ class EditWordViewModelFactory(
             @Suppress("UNCHECKED_CAST")
             return EditWordViewModel(repository) as T
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
+        throw IllegalArgumentException("Clase de ViewModel desconocida")
     }
 }

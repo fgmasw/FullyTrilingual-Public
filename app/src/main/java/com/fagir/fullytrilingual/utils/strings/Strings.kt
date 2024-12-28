@@ -1,18 +1,18 @@
 package com.fagir.fullytrilingual.utils.strings
 
 /**
- * Objeto que almacena los textos de la aplicación en distintos idiomas.
+ * Este objeto guarda los textos de la app en varios idiomas.
  *
- * Cada propiedad se asocia a un map de la forma:
- *   "es" -> "Texto en Español"
- *   "en" -> "Texto en Inglés"
- *   "pt" -> "Texto en Portugués"
+ * Cada propiedad es un map con las claves:
+ *   "es" -> texto en español
+ *   "en" -> texto en inglés
+ *   "pt" -> texto en portugués
  *
- * Cuando necesites más idiomas, solo agrega la clave y traducción correspondiente.
+ * Si más adelante deseamos más idiomas, basta agregar su clave y traducción.
  */
 object Strings {
 
-    // Ejemplo para la pantalla de inicio (HomeScreen)
+    // Mensajes de la pantalla principal (HomeScreen)
     val homeTitle = mapOf(
         "es" to "Pantalla de Inicio",
         "en" to "Home Screen",
@@ -37,7 +37,7 @@ object Strings {
         "pt" to "Ir para Lista de Palavras"
     )
 
-    // Ejemplo para la pantalla de agregar palabra (AddWordScreen)
+    // Textos usados en la pantalla de agregar palabra (AddWordScreen)
     val addWordTitle = mapOf(
         "es" to "Agregar palabra nueva",
         "en" to "Add new word",
@@ -104,7 +104,7 @@ object Strings {
         "pt" to "Palavra salva com sucesso."
     )
 
-    // Ejemplo para la pantalla de editar palabra (EditWordScreen)
+    // Textos para la pantalla de editar palabra (EditWordScreen)
     val editWordTitle = mapOf(
         "es" to "Editar palabra",
         "en" to "Edit word",
@@ -117,5 +117,4 @@ object Strings {
         "pt" to "Alterações salvas com sucesso."
     )
 
-    // Puedes seguir añadiendo más textos según las necesidades de tu app...
 }

@@ -11,9 +11,13 @@ import com.fagir.fullytrilingual.data.local.entities.Word
 
 @Composable
 fun WordListItem(
+    // Información de la palabra a mostrar
     word: Word,
+
+    // Acción que se llama al presionar el botón de eliminar
     onDelete: () -> Unit
 ) {
+    // Tarjeta que envuelve la información de la palabra
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -25,7 +29,7 @@ fun WordListItem(
                 .padding(8.dp)
                 .fillMaxWidth()
         ) {
-            // Columna donde se muestran los campos
+            // Columna que presenta todos los datos de la palabra
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = "ID: ${word.id}", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(4.dp))
@@ -40,14 +44,14 @@ fun WordListItem(
                 Text(text = "Phrase (PT): ${word.phrasePt}")
             }
 
-            // Botón para eliminar
+            // Ícono para eliminar la palabra
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier.padding(start = 8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete Word"
+                    contentDescription = "Borrar palabra"
                 )
             }
         }
