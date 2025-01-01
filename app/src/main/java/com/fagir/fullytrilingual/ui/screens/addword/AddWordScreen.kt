@@ -12,39 +12,46 @@ import com.fagir.fullytrilingual.data.repository.WordRepository
 import com.fagir.fullytrilingual.utils.strings.Strings
 import kotlinx.coroutines.launch
 
+/**
+ * Pantalla para agregar una nueva palabra a la base de datos.
+ *
+ * @param navController Controlador para la navegación entre pantallas.
+ * @param language Idioma seleccionado (viene de otra pantalla).
+ * @param repository Repositorio para interactuar con la base de datos.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddWordScreen(
-    // Navegador para movernos entre pantallas
     navController: NavHostController,
-
-    // Idioma que viene de la pantalla anterior
     language: String,
-
-    // Repositorio para interactuar con la base de datos
     repository: WordRepository
 ) {
-    // Creamos nuestro ViewModel con la fábrica que usa el repositorio
+    // ViewModel que maneja la inserción de palabras.
     val addWordViewModel: AddWordViewModel = viewModel(factory = AddWordViewModelFactory(repository))
 
-    // Variables para almacenar las palabras y frases en cada idioma
+    // Campos para la palabra en cada idioma.
     var palabraEs by remember { mutableStateOf("") }
     var palabraEn by remember { mutableStateOf("") }
     var palabraPt by remember { mutableStateOf("") }
+
+    // Campos para la frase en cada idioma.
     var fraseEs by remember { mutableStateOf("") }
     var fraseEn by remember { mutableStateOf("") }
     var frasePt by remember { mutableStateOf("") }
 
-    // Control para indicar si estamos guardando y para mostrar mensajes
+    // Control de estado para indicar si estamos guardando (deshabilitar botón).
     var isLoading by remember { mutableStateOf(false) }
+
+    // Para mostrar mensajes tipo SnackBar (éxito o error).
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // Estructura básica de Material 3 para la pantalla
+    // Estructura de la pantalla usando Scaffold (Material3).
     Scaffold(
+        // Lugar donde se mostrarán los SnackBars.
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
-        // Columna principal que organiza la pantalla
+        // Columna principal
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -53,7 +60,7 @@ fun AddWordScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Muestra el título y el idioma que se está usando
+            // Título de la pantalla
             Text(
                 text = (Strings.addWordTitle[language] ?: "Agregar palabra nueva") +
                         " (Idioma: ${language.uppercase()})",
@@ -61,7 +68,11 @@ fun AddWordScreen(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // Campo para la palabra en español
+            // ---------------------
+            // Campos para la palabra
+            // ---------------------
+
+            // Palabra en Español
             OutlinedTextField(
                 value = palabraEs,
                 onValueChange = { palabraEs = it },
@@ -70,7 +81,7 @@ fun AddWordScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Campo para la palabra en inglés
+            // Palabra en Inglés
             OutlinedTextField(
                 value = palabraEn,
                 onValueChange = { palabraEn = it },
@@ -79,7 +90,7 @@ fun AddWordScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Campo para la palabra en portugués
+            // Palabra en Portugués
             OutlinedTextField(
                 value = palabraPt,
                 onValueChange = { palabraPt = it },
@@ -88,7 +99,11 @@ fun AddWordScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo para la frase en español
+            // ---------------------
+            // Campos para la frase
+            // ---------------------
+
+            // Frase en Español
             OutlinedTextField(
                 value = fraseEs,
                 onValueChange = { fraseEs = it },
@@ -97,7 +112,7 @@ fun AddWordScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Campo para la frase en inglés
+            // Frase en Inglés
             OutlinedTextField(
                 value = fraseEn,
                 onValueChange = { fraseEn = it },
@@ -106,7 +121,7 @@ fun AddWordScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Campo para la frase en portugués
+            // Frase en Portugués
             OutlinedTextField(
                 value = frasePt,
                 onValueChange = { frasePt = it },
@@ -115,14 +130,16 @@ fun AddWordScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón para guardar la nueva palabra en la base de datos
+            // ---------------------
+            // Botón para guardar
+            // ---------------------
             Button(
                 onClick = {
-                    // Revisamos que los campos de palabra (ES, EN, PT) no estén vacíos
+                    // Verificamos que las palabras (ES/EN/PT) estén llenas.
                     if (palabraEs.isNotBlank() && palabraEn.isNotBlank() && palabraPt.isNotBlank()) {
                         isLoading = true
 
-                        // Insertamos la palabra usando el ViewModel
+                        // Insertamos la palabra en la BD usando el ViewModel.
                         addWordViewModel.insertWord(
                             wordEs = palabraEs,
                             wordEn = palabraEn,
@@ -133,14 +150,16 @@ fun AddWordScreen(
                         )
 
                         isLoading = false
+
+                        // Mostramos mensaje de éxito usando SnackBar.
                         scope.launch {
-                            // Mostramos mensaje de éxito, usando la traducción
                             snackbarHostState.showSnackbar(
-                                Strings.successWordSaved[language] ?: "Palabra guardada correctamente."
+                                message = Strings.successWordSaved[language]
+                                    ?: "Palabra guardada correctamente."
                             )
                         }
 
-                        // Limpiamos los campos después de guardar
+                        // Limpiamos los campos tras guardar.
                         palabraEs = ""
                         palabraEn = ""
                         palabraPt = ""
@@ -149,19 +168,19 @@ fun AddWordScreen(
                         frasePt = ""
 
                     } else {
-                        // Si faltan campos, lanzamos un mensaje de error
+                        // Si faltan campos básicos, mostramos error.
                         scope.launch {
                             snackbarHostState.showSnackbar(
-                                Strings.errorFieldsEmpty[language] ?: "Por favor, completa los campos obligatorios."
+                                message = Strings.errorFieldsEmpty[language]
+                                    ?: "Por favor, completa los campos obligatorios."
                             )
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading
+                enabled = !isLoading  // Deshabilita el botón si está guardando.
             ) {
-                // Si está cargando, mostramos "Guardando...",
-                // de lo contrario, tomamos la traducción de "Guardar"
+                // Texto que indica si está guardando o no.
                 Text(
                     if (isLoading) "Guardando..."
                     else (Strings.buttonSave[language] ?: "Guardar")
@@ -170,8 +189,20 @@ fun AddWordScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón para regresar a la lista de palabras
-            TextButton(onClick = { navController.popBackStack() }) {
+            // ---------------------
+            // Botón "Volver a la lista"
+            // ---------------------
+            TextButton(
+                onClick = {
+                    // Aquí usamos la ruta exacta que definiste en tu MainActivity.kt: "wordList"
+                    navController.navigate("wordList") {
+                        // popUpTo("wordList") { inclusive = true }  // (Opción A: forzar nueva instancia)
+
+                        // Opción B (reutiliza la instancia existente, si está en el back stack)
+                        popUpTo("wordList") { inclusive = false }
+                    }
+                }
+            ) {
                 Text(Strings.buttonBackToList[language] ?: "Volver a la lista")
             }
         }
