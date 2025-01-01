@@ -36,7 +36,3 @@ Este proyecto es una **aplicación Android** que permite **agregar, listar, edit
 ## Demo en video
 Si deseas ver cómo funciona la aplicación, puedes echar un vistazo a la demo en YouTube:  
 [Demo de FullyTrilingual](https://www.youtube.com/watch?v=9ZK3--IHv_0)
-
-¡Listo!  
-Cualquier duda o mejora, no dudes en contribuir.  
-¡Gracias por usar **FullyTrilingual**!
