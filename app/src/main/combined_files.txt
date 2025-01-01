@@ -1,0 +1,2014 @@
+﻿Â¡Hola! Voy a entregarte varios archivos con el cÃ³digo de mi aplicaciÃ³n web.
+
+
+
+CÃ³digo para los archivos .kt en el directorio java y sus subdirectorios:
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\data\local\dao\WordDao.kt:
+package com.fagir.fullytrilingual.data.local.dao
+
+import androidx.room.*
+import com.fagir.fullytrilingual.data.local.entities.Word
+
+@Dao
+interface WordDao {
+
+    // Inserta una palabra en la base de datos.
+    // Usamos REPLACE para sobrescribir si hay conflicto en el ID.
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWord(word: Word): Long
+
+    // Devuelve todas las palabras que tengan texto en wordEs.
+    // Sirve para filtrar las que tienen contenido en espaÃ±ol.
+    @Query("SELECT * FROM words WHERE wordEs <> ''")
+    suspend fun getWordsSpanish(): List<Word>
+
+    // Devuelve todas las palabras que tengan texto en wordEn.
+    // Ayuda a filtrar las que tienen contenido en inglÃ©s.
+    @Query("SELECT * FROM words WHERE wordEn <> ''")
+    suspend fun getWordsEnglish(): List<Word>
+
+    // Devuelve todas las palabras que tengan texto en wordPt.
+    // Filtra las que tienen contenido en portuguÃ©s.
+    @Query("SELECT * FROM words WHERE wordPt <> ''")
+    suspend fun getWordsPortuguese(): List<Word>
+
+    // Retorna todas las palabras sin filtrar.
+    // AquÃ­ obtenemos la lista completa.
+    @Query("SELECT * FROM words")
+    suspend fun getAllWords(): List<Word>
+
+    // Elimina una palabra segÃºn su ID.
+    // Esto nos ayuda a borrar elementos especÃ­ficos.
+    @Query("DELETE FROM words WHERE id = :id")
+    suspend fun deleteWordById(id: Int)
+
+    // Devuelve la palabra con el ID dado, o null si no existe.
+    // Ãštil para buscar un elemento especÃ­fico.
+    @Query("SELECT * FROM words WHERE id = :id LIMIT 1")
+    suspend fun getWordById(id: Int): Word?
+
+    // Actualiza una palabra existente en la base de datos.
+    // Usa la clave primaria para identificarla.
+    @Update
+    suspend fun updateWord(word: Word)
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\data\local\database\AppDatabase.kt:
+package com.fagir.fullytrilingual.data.local.database
+
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.fagir.fullytrilingual.data.local.dao.WordDao
+import com.fagir.fullytrilingual.data.local.entities.Word
+import com.fagir.fullytrilingual.data.local.seed.PrepopulateData
+import java.util.concurrent.Executors
+import kotlinx.coroutines.runBlocking
+
+@Database(entities = [Word::class], version = 3, exportSchema = false)
+abstract class AppDatabase : RoomDatabase() {
+
+    // AquÃ­ definimos nuestra interfaz para acceder a WordDao.
+    abstract fun wordDao(): WordDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        // MigraciÃ³n de la versiÃ³n 2 a la 3.
+        // Esto ajusta la estructura de la tabla para las nuevas columnas ES, EN, PT.
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // 1) Creamos la nueva tabla con los campos correctos.
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `words_new` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `wordEs` TEXT NOT NULL,
+                        `wordEn` TEXT NOT NULL,
+                        `wordPt` TEXT NOT NULL,
+                        `phraseEs` TEXT NOT NULL,
+                        `phraseEn` TEXT NOT NULL,
+                        `phrasePt` TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+
+                // 2) Copiamos los datos de la tabla vieja a la nueva.
+                //    Ajustamos el SELECT segÃºn cÃ³mo estaban antes los campos.
+                database.execSQL(
+                    """
+                    INSERT INTO `words_new` (
+                        `id`,
+                        `wordEs`,
+                        `wordEn`,
+                        `wordPt`,
+                        `phraseEs`,
+                        `phraseEn`,
+                        `phrasePt`
+                    )
+                    SELECT
+                        `id`,
+                        `word` AS `wordEs`,
+                        `translation1` AS `wordEn`,
+                        `translation2` AS `wordPt`,
+                        `phraseBase` AS `phraseEs`,
+                        `phraseTranslation1` AS `phraseEn`,
+                        `phraseTranslation2` AS `phrasePt`
+                    FROM `words`
+                    """.trimIndent()
+                )
+
+                // 3) Borramos la tabla vieja y renombramos la nueva.
+                database.execSQL("DROP TABLE `words`")
+                database.execSQL("ALTER TABLE `words_new` RENAME TO `words`")
+            }
+        }
+
+        // MigraciÃ³n de la versiÃ³n 1 a 2 (si hace falta).
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // AquÃ­ irÃ­an los pasos para migrar de la versiÃ³n 1 a la 2.
+            }
+        }
+
+        // Callback para cuando se crea la base de datos por primera vez.
+        // Pre-poblamos la tabla con datos iniciales.
+        private val appDatabaseCallback = object : RoomDatabase.Callback() {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+                super.onCreate(db)
+                Executors.newSingleThreadExecutor().execute {
+                    INSTANCE?.let { database ->
+                        val dao = database.wordDao()
+                        PrepopulateData.getPrepopulatedWords().forEach { word ->
+                            runBlocking {
+                                dao.insertWord(word)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Esta funciÃ³n devuelve la instancia de AppDatabase.
+        // Usa un bloqueo para que sea segura en hilos mÃºltiples.
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "words_database"
+                )
+                    // Agregamos las migraciones necesarias.
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addCallback(appDatabaseCallback)
+                    .build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\data\local\entities\Word.kt:
+package com.fagir.fullytrilingual.data.local.entities
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "words")
+data class Word(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+
+    // Palabra en EspaÃ±ol
+    val wordEs: String,
+
+    // Palabra en InglÃ©s
+    val wordEn: String,
+
+    // Palabra en PortuguÃ©s
+    val wordPt: String,
+
+    // Frase de ejemplo en EspaÃ±ol
+    val phraseEs: String,
+
+    // Frase de ejemplo en InglÃ©s
+    val phraseEn: String,
+
+    // Frase de ejemplo en PortuguÃ©s
+    val phrasePt: String
+)
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\data\local\seed\PrepopulateData.kt:
+package com.fagir.fullytrilingual.data.local.seed
+
+import com.fagir.fullytrilingual.data.local.entities.Word
+
+/**
+ * Esta clase u objeto se encarga de proveer los registros precargados
+ * que deseas insertar en la base de datos.
+ */
+object PrepopulateData {
+
+    /**
+     * Retorna una lista de objetos Word precargados (20 registros),
+     * ajustados a la nueva estructura:
+     *
+     *   wordEs, wordEn, wordPt
+     *   phraseEs, phraseEn, phrasePt
+     */
+    fun getPrepopulatedWords(): List<Word> {
+        return listOf(
+            // 1) baseLanguage = "es"
+            Word(
+                id = 1,
+                wordEs = "Hola",
+                wordEn = "Hello",
+                wordPt = "OlÃ¡",
+                phraseEs = "Hola, amigos",
+                phraseEn = "Hello, friends",
+                phrasePt = "OlÃ¡, amigos"
+            ),
+            // 2) baseLanguage = "es"
+            Word(
+                id = 2,
+                wordEs = "Perro",
+                wordEn = "Dog",
+                wordPt = "Cachorro",
+                phraseEs = "El perro corre",
+                phraseEn = "The dog runs",
+                phrasePt = "O cachorro corre"
+            ),
+            // 3) baseLanguage = "es"
+            Word(
+                id = 3,
+                wordEs = "Libro",
+                wordEn = "Book",
+                wordPt = "Livro",
+                phraseEs = "El libro es nuevo",
+                phraseEn = "The book is new",
+                phrasePt = "O livro Ã© novo"
+            ),
+            // 4) baseLanguage = "es"
+            Word(
+                id = 4,
+                wordEs = "Gato",
+                wordEn = "Cat",
+                wordPt = "Gato",
+                phraseEs = "El gato duerme",
+                phraseEn = "The cat sleeps",
+                phrasePt = "O gato dorme"
+            ),
+            // 5) baseLanguage = "en"
+            Word(
+                id = 5,
+                wordEn = "House",
+                wordEs = "Casa",
+                wordPt = "Casa",
+                phraseEn = "The house is big",
+                phraseEs = "La casa es grande",
+                phrasePt = "A casa Ã© grande"
+            ),
+            // 6) baseLanguage = "en"
+            Word(
+                id = 6,
+                wordEn = "Water",
+                wordEs = "Agua",
+                wordPt = "Ãgua",
+                phraseEn = "Water is essential",
+                phraseEs = "El agua es esencial",
+                phrasePt = "A Ã¡gua Ã© esencial"
+            ),
+            // 7) baseLanguage = "en"
+            Word(
+                id = 7,
+                wordEn = "Car",
+                wordEs = "Coche",
+                wordPt = "Carro",
+                phraseEn = "I drive the car",
+                phraseEs = "Conduzco el coche",
+                phrasePt = "Eu dirijo o carro"
+            ),
+            // 8) baseLanguage = "en"
+            Word(
+                id = 8,
+                wordEn = "Food",
+                wordEs = "Comida",
+                wordPt = "Comida",
+                phraseEn = "Food is good",
+                phraseEs = "La comida es buena",
+                phrasePt = "A comida Ã© boa"
+            ),
+            // 9) baseLanguage = "pt"
+            Word(
+                id = 9,
+                wordPt = "Livro",
+                wordEs = "Libro",
+                wordEn = "Book",
+                phrasePt = "O livro Ã© interessante",
+                phraseEs = "El libro es interesante",
+                phraseEn = "The book is interesting"
+            ),
+            // 10) baseLanguage = "pt"
+            Word(
+                id = 10,
+                wordPt = "Dia",
+                wordEs = "DÃ­a",
+                wordEn = "Day",
+                phrasePt = "O dia estÃ¡ lindo",
+                phraseEs = "El dÃ­a estÃ¡ lindo",
+                phraseEn = "The day is beautiful"
+            ),
+            // 11) baseLanguage = "pt"
+            Word(
+                id = 11,
+                wordPt = "CafÃ©",
+                wordEs = "CafÃ©",
+                wordEn = "Coffee",
+                phrasePt = "Eu gosto de cafÃ©",
+                phraseEs = "Me gusta el cafÃ©",
+                phraseEn = "I like coffee"
+            ),
+            // 12) baseLanguage = "es"
+            Word(
+                id = 12,
+                wordEs = "Mundo",
+                wordEn = "World",
+                wordPt = "Mundo",
+                phraseEs = "El mundo es grande",
+                phraseEn = "The world is big",
+                phrasePt = "O mundo Ã© grande"
+            ),
+            // 13) baseLanguage = "es"
+            Word(
+                id = 13,
+                wordEs = "Ciudad",
+                wordEn = "City",
+                wordPt = "Cidade",
+                phraseEs = "La ciudad es ruidosa",
+                phraseEn = "The city is noisy",
+                phrasePt = "A cidade Ã© barulhenta"
+            ),
+            // 14) baseLanguage = "es"
+            Word(
+                id = 14,
+                wordEs = "NiÃ±o",
+                wordEn = "Child",
+                wordPt = "CrianÃ§a",
+                phraseEs = "El niÃ±o juega",
+                phraseEn = "The child plays",
+                phrasePt = "A crianÃ§a brinca"
+            ),
+            // 15) baseLanguage = "en"
+            Word(
+                id = 15,
+                wordEn = "Sun",
+                wordEs = "Sol",
+                wordPt = "Sol",
+                phraseEn = "The sun is bright",
+                phraseEs = "El sol es brillante",
+                phrasePt = "O sol Ã© brilhante"
+            ),
+            // 16) baseLanguage = "en"
+            Word(
+                id = 16,
+                wordEn = "Dog",
+                wordEs = "Perro",
+                wordPt = "Cachorro",
+                phraseEn = "I love my dog",
+                phraseEs = "Amo a mi perro",
+                phrasePt = "Amo meu cachorro"
+            ),
+            // 17) baseLanguage = "pt"
+            Word(
+                id = 17,
+                wordPt = "Carro",
+                wordEs = "Coche",
+                wordEn = "Car",
+                phrasePt = "Eu tenho um carro",
+                phraseEs = "Tengo un coche",
+                phraseEn = "I have a car"
+            ),
+            // 18) baseLanguage = "pt"
+            Word(
+                id = 18,
+                wordPt = "Casa",
+                wordEs = "Casa",
+                wordEn = "House",
+                phrasePt = "Minha casa Ã© confortÃ¡vel",
+                phraseEs = "Mi casa es cÃ³moda",
+                phraseEn = "My house is comfortable"
+            ),
+            // 19) baseLanguage = "en"
+            Word(
+                id = 19,
+                wordEn = "Book",
+                wordEs = "Libro",
+                wordPt = "Livro",
+                phraseEn = "I read the book",
+                phraseEs = "Leo el libro",
+                phrasePt = "Eu leio o livro"
+            ),
+            // 20) baseLanguage = "es"
+            Word(
+                id = 20,
+                wordEs = "Flor",
+                wordEn = "Flower",
+                wordPt = "Flor",
+                phraseEs = "La flor es bonita",
+                phraseEn = "The flower is pretty",
+                phrasePt = "A flor Ã© bonita"
+            )
+        )
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\data\repository\WordRepository.kt:
+package com.fagir.fullytrilingual.data.repository
+
+import com.fagir.fullytrilingual.data.local.dao.WordDao
+import com.fagir.fullytrilingual.data.local.entities.Word
+
+class WordRepository(private val wordDao: WordDao) {
+
+    // Inserta una nueva palabra en la base de datos.
+    suspend fun insertWord(word: Word): Long {
+        return wordDao.insertWord(word)
+    }
+
+    // Retorna todas las palabras guardadas.
+    suspend fun getAllWords(): List<Word> {
+        return wordDao.getAllWords()
+    }
+
+    // Devuelve palabras segÃºn el idioma:
+    // es -> palabra en espaÃ±ol
+    // en -> palabra en inglÃ©s
+    // pt -> palabra en portuguÃ©s
+    suspend fun getWordsByLanguage(language: String): List<Word> {
+        return when (language) {
+            "es" -> wordDao.getWordsSpanish()
+            "en" -> wordDao.getWordsEnglish()
+            "pt" -> wordDao.getWordsPortuguese()
+            else -> emptyList()
+        }
+    }
+
+    // Borra una palabra de la base de datos segÃºn su ID.
+    suspend fun deleteWordById(id: Int) {
+        wordDao.deleteWordById(id)
+    }
+
+    // Busca una palabra segÃºn su ID. Si no existe, regresa null.
+    suspend fun getWordById(id: Int): Word? {
+        return wordDao.getWordById(id)
+    }
+
+    // Actualiza los datos de una palabra en la base de datos.
+    suspend fun updateWord(word: Word) {
+        wordDao.updateWord(word)
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\components\WordInputField.kt:
+package com.fagir.fullytrilingual.ui.components
+
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WordInputField(
+    // Texto que describe para quÃ© sirve este campo
+    label: String,
+
+    // Valor actual que se muestra en el campo
+    value: String,
+
+    // AcciÃ³n cuando el usuario cambia el texto
+    onValueChange: (String) -> Unit,
+
+    // Modificador para ajustar el estilo o tamaÃ±o, si se necesita
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        modifier = modifier.fillMaxWidth()
+    )
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\components\WordListItem.kt:
+package com.fagir.fullytrilingual.ui.components
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.fagir.fullytrilingual.data.local.entities.Word
+
+@Composable
+fun WordListItem(
+    // InformaciÃ³n de la palabra a mostrar
+    word: Word,
+
+    // AcciÃ³n que se llama al presionar el botÃ³n de eliminar
+    onDelete: () -> Unit
+) {
+    // Tarjeta que envuelve la informaciÃ³n de la palabra
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth()
+        ) {
+            // Columna que presenta todos los datos de la palabra
+            Column(modifier = Modifier.weight(1f)) {
+                //Text(text = "ID: ${word.id}", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(text = "Word (ES): ${word.wordEs}")
+                Text(text = "Word (EN): ${word.wordEn}")
+                Text(text = "Word (PT): ${word.wordPt}")
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(text = "Phrase (ES): ${word.phraseEs}")
+                Text(text = "Phrase (EN): ${word.phraseEn}")
+                Text(text = "Phrase (PT): ${word.phrasePt}")
+            }
+
+            // Ãcono para eliminar la palabra
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Borrar palabra"
+                )
+            }
+        }
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\addword\AddWordScreen.kt:
+package com.fagir.fullytrilingual.ui.screens.addword
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import com.fagir.fullytrilingual.data.repository.WordRepository
+import com.fagir.fullytrilingual.utils.strings.Strings
+import kotlinx.coroutines.launch
+
+/**
+ * Pantalla para agregar una nueva palabra a la base de datos.
+ *
+ * @param navController Controlador para la navegaciÃ³n entre pantallas.
+ * @param language Idioma seleccionado (viene de otra pantalla).
+ * @param repository Repositorio para interactuar con la base de datos.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddWordScreen(
+    navController: NavHostController,
+    language: String,
+    repository: WordRepository
+) {
+    // ViewModel que maneja la inserciÃ³n de palabras.
+    val addWordViewModel: AddWordViewModel = viewModel(factory = AddWordViewModelFactory(repository))
+
+    // Campos para la palabra en cada idioma.
+    var palabraEs by remember { mutableStateOf("") }
+    var palabraEn by remember { mutableStateOf("") }
+    var palabraPt by remember { mutableStateOf("") }
+
+    // Campos para la frase en cada idioma.
+    var fraseEs by remember { mutableStateOf("") }
+    var fraseEn by remember { mutableStateOf("") }
+    var frasePt by remember { mutableStateOf("") }
+
+    // Control de estado para indicar si estamos guardando (deshabilitar botÃ³n).
+    var isLoading by remember { mutableStateOf(false) }
+
+    // Para mostrar mensajes tipo SnackBar (Ã©xito o error).
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Estructura de la pantalla usando Scaffold (Material3).
+    Scaffold(
+        // Lugar donde se mostrarÃ¡n los SnackBars.
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { paddingValues ->
+        // Columna principal
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // TÃ­tulo de la pantalla
+            Text(
+                text = (Strings.addWordTitle[language] ?: "Agregar palabra nueva") +
+                        " (Idioma: ${language.uppercase()})",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // ---------------------
+            // Campos para la palabra
+            // ---------------------
+
+            // Palabra en EspaÃ±ol
+            OutlinedTextField(
+                value = palabraEs,
+                onValueChange = { palabraEs = it },
+                label = { Text(Strings.wordEsLabel[language] ?: "Palabra (ES)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Palabra en InglÃ©s
+            OutlinedTextField(
+                value = palabraEn,
+                onValueChange = { palabraEn = it },
+                label = { Text(Strings.wordEnLabel[language] ?: "Palabra (EN)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Palabra en PortuguÃ©s
+            OutlinedTextField(
+                value = palabraPt,
+                onValueChange = { palabraPt = it },
+                label = { Text(Strings.wordPtLabel[language] ?: "Palabra (PT)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ---------------------
+            // Campos para la frase
+            // ---------------------
+
+            // Frase en EspaÃ±ol
+            OutlinedTextField(
+                value = fraseEs,
+                onValueChange = { fraseEs = it },
+                label = { Text(Strings.phraseEsLabel[language] ?: "Frase (ES)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Frase en InglÃ©s
+            OutlinedTextField(
+                value = fraseEn,
+                onValueChange = { fraseEn = it },
+                label = { Text(Strings.phraseEnLabel[language] ?: "Frase (EN)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Frase en PortuguÃ©s
+            OutlinedTextField(
+                value = frasePt,
+                onValueChange = { frasePt = it },
+                label = { Text(Strings.phrasePtLabel[language] ?: "Frase (PT)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ---------------------
+            // BotÃ³n para guardar
+            // ---------------------
+            Button(
+                onClick = {
+                    // Verificamos que las palabras (ES/EN/PT) estÃ©n llenas.
+                    if (palabraEs.isNotBlank() && palabraEn.isNotBlank() && palabraPt.isNotBlank()) {
+                        isLoading = true
+
+                        // Insertamos la palabra en la BD usando el ViewModel.
+                        addWordViewModel.insertWord(
+                            wordEs = palabraEs,
+                            wordEn = palabraEn,
+                            wordPt = palabraPt,
+                            phraseEs = fraseEs,
+                            phraseEn = fraseEn,
+                            phrasePt = frasePt
+                        )
+
+                        isLoading = false
+
+                        // Mostramos mensaje de Ã©xito usando SnackBar.
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = Strings.successWordSaved[language]
+                                    ?: "Palabra guardada correctamente."
+                            )
+                        }
+
+                        // Limpiamos los campos tras guardar.
+                        palabraEs = ""
+                        palabraEn = ""
+                        palabraPt = ""
+                        fraseEs = ""
+                        fraseEn = ""
+                        frasePt = ""
+
+                    } else {
+                        // Si faltan campos bÃ¡sicos, mostramos error.
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = Strings.errorFieldsEmpty[language]
+                                    ?: "Por favor, completa los campos obligatorios."
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading  // Deshabilita el botÃ³n si estÃ¡ guardando.
+            ) {
+                // Texto que indica si estÃ¡ guardando o no.
+                Text(
+                    if (isLoading) "Guardando..."
+                    else (Strings.buttonSave[language] ?: "Guardar")
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ---------------------
+            // BotÃ³n "Volver a la lista"
+            // ---------------------
+            TextButton(
+                onClick = {
+                    // AquÃ­ usamos la ruta exacta que definiste en tu MainActivity.kt: "wordList"
+                    navController.navigate("wordList") {
+                        // popUpTo("wordList") { inclusive = true }  // (OpciÃ³n A: forzar nueva instancia)
+
+                        // OpciÃ³n B (reutiliza la instancia existente, si estÃ¡ en el back stack)
+                        popUpTo("wordList") { inclusive = false }
+                    }
+                }
+            ) {
+                Text(Strings.buttonBackToList[language] ?: "Volver a la lista")
+            }
+        }
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\addword\AddWordViewModel.kt:
+package com.fagir.fullytrilingual.ui.screens.addword
+
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.fagir.fullytrilingual.data.local.entities.Word
+import com.fagir.fullytrilingual.data.repository.WordRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+class AddWordViewModel(private val repository: WordRepository) : ViewModel() {
+
+    // Inserta una nueva palabra, considerando:
+    // - wordEs, wordEn, wordPt
+    // - phraseEs, phraseEn, phrasePt
+    // Verificamos que los campos de palabras no estÃ©n vacÃ­os.
+    fun insertWord(
+        wordEs: String,
+        wordEn: String,
+        wordPt: String,
+        phraseEs: String,
+        phraseEn: String,
+        phrasePt: String
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                Log.d("AddWordViewModel", "Insertando palabra: ES=($wordEs), EN=($wordEn), PT=($wordPt)")
+
+                // Revisamos que no estÃ©n vacÃ­os los campos principales de la palabra
+                if (wordEs.isBlank() || wordEn.isBlank() || wordPt.isBlank()) {
+                    throw IllegalArgumentException("Las palabras en ES/EN/PT no deben estar vacÃ­as.")
+                }
+
+                // Construimos la entidad Word con los datos que ingresÃ³ el usuario
+                val newWord = Word(
+                    wordEs = wordEs,
+                    wordEn = wordEn,
+                    wordPt = wordPt,
+                    phraseEs = phraseEs,
+                    phraseEn = phraseEn,
+                    phrasePt = phrasePt
+                )
+
+                // Llamamos al repositorio para guardarla en la base de datos
+                repository.insertWord(newWord)
+                Log.d("AddWordViewModel", "Palabra insertada correctamente.")
+
+            } catch (e: Exception) {
+                Log.e("AddWordViewModel", "Error al insertar la palabra", e)
+            }
+        }
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\addword\AddWordViewModelFactory.kt:
+package com.fagir.fullytrilingual.ui.screens.addword
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.fagir.fullytrilingual.data.repository.WordRepository
+
+// FÃ¡brica que crea instancias de AddWordViewModel.
+// Se asegura de inyectarle el repositorio necesario.
+class AddWordViewModelFactory(private val repository: WordRepository) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(AddWordViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return AddWordViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Clase de ViewModel desconocida")
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\editword\EditWordScreen.kt:
+package com.fagir.fullytrilingual.ui.screens.editword
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import com.fagir.fullytrilingual.data.local.entities.Word
+import com.fagir.fullytrilingual.data.repository.WordRepository
+import com.fagir.fullytrilingual.ui.screens.home.HomeViewModel  // AquÃ­ tomamos el idioma actual
+import com.fagir.fullytrilingual.utils.strings.Strings         // Textos traducidos
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditWordScreen(
+    // Controlador de navegaciÃ³n
+    navController: NavHostController,
+
+    // ID de la palabra que queremos modificar
+    wordId: Int,
+
+    // Repositorio para manejar la base de datos
+    repository: WordRepository
+) {
+    // ViewModel que maneja la lÃ³gica de ediciÃ³n
+    val editWordViewModel: EditWordViewModel = viewModel(
+        factory = EditWordViewModelFactory(repository)
+    )
+
+    // ViewModel para saber el idioma elegido por el usuario
+    val homeViewModel: HomeViewModel = viewModel()
+    val language = homeViewModel.selectedLanguage.collectAsState().value
+
+    // Cuando entramos a esta pantalla, cargamos la palabra de la BD usando su ID
+    LaunchedEffect(wordId) {
+        editWordViewModel.loadWord(wordId)
+    }
+
+    // Observamos el estado actual de la palabra que se editarÃ¡
+    val palabraActual by editWordViewModel.currentWord.collectAsState()
+
+    // Variables que mostrarÃ¡n los campos para la ediciÃ³n
+    var palabraEs by remember { mutableStateOf("") }
+    var palabraEn by remember { mutableStateOf("") }
+    var palabraPt by remember { mutableStateOf("") }
+    var fraseEs by remember { mutableStateOf("") }
+    var fraseEn by remember { mutableStateOf("") }
+    var frasePt by remember { mutableStateOf("") }
+
+    // Cuando recibimos la palabra, llenamos los campos con sus datos
+    LaunchedEffect(palabraActual) {
+        palabraActual?.let { word ->
+            palabraEs = word.wordEs
+            palabraEn = word.wordEn
+            palabraPt = word.wordPt
+            fraseEs = word.phraseEs
+            fraseEn = word.phraseEn
+            frasePt = word.phrasePt
+        }
+    }
+
+    val isLoading by editWordViewModel.isLoading.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Estructura principal de la pantalla
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // TÃ­tulo que muestra "Editar palabra" mÃ¡s el ID de la palabra
+            Text(
+                text = (Strings.editWordTitle[language] ?: "Editar palabra") +
+                        " (ID: $wordId)",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // Campo para la palabra en espaÃ±ol
+            OutlinedTextField(
+                value = palabraEs,
+                onValueChange = { palabraEs = it },
+                label = { Text(Strings.wordEsLabel[language] ?: "Palabra (ES)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Campo para la palabra en inglÃ©s
+            OutlinedTextField(
+                value = palabraEn,
+                onValueChange = { palabraEn = it },
+                label = { Text(Strings.wordEnLabel[language] ?: "Palabra (EN)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Campo para la palabra en portuguÃ©s
+            OutlinedTextField(
+                value = palabraPt,
+                onValueChange = { palabraPt = it },
+                label = { Text(Strings.wordPtLabel[language] ?: "Palabra (PT)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Campo para la frase en espaÃ±ol
+            OutlinedTextField(
+                value = fraseEs,
+                onValueChange = { fraseEs = it },
+                label = { Text(Strings.phraseEsLabel[language] ?: "Frase (ES)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Campo para la frase en inglÃ©s
+            OutlinedTextField(
+                value = fraseEn,
+                onValueChange = { fraseEn = it },
+                label = { Text(Strings.phraseEnLabel[language] ?: "Frase (EN)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Campo para la frase en portuguÃ©s
+            OutlinedTextField(
+                value = frasePt,
+                onValueChange = { frasePt = it },
+                label = { Text(Strings.phrasePtLabel[language] ?: "Frase (PT)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // BotÃ³n para guardar los cambios
+            Button(
+                onClick = {
+                    // Requerimos que ES, EN y PT tengan texto
+                    if (palabraEs.isNotBlank() && palabraEn.isNotBlank() && palabraPt.isNotBlank()) {
+                        scope.launch {
+                            editWordViewModel.updateWord(
+                                Word(
+                                    id = wordId,
+                                    wordEs = palabraEs,
+                                    wordEn = palabraEn,
+                                    wordPt = palabraPt,
+                                    phraseEs = fraseEs,
+                                    phraseEn = fraseEn,
+                                    phrasePt = frasePt
+                                )
+                            )
+                            // Mensaje de Ã©xito en la parte inferior
+                            snackbarHostState.showSnackbar(
+                                Strings.successWordUpdated[language] ?: "Cambios guardados correctamente."
+                            )
+                        }
+                    } else {
+                        scope.launch {
+                            // Si faltan palabras en los campos
+                            snackbarHostState.showSnackbar(
+                                Strings.errorFieldsEmpty[language] ?: "Campos obligatorios faltantes."
+                            )
+                        }
+                    }
+                },
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Mostramos "Guardando..." mientras estÃ¡ ocupado,
+                // de lo contrario, "Guardar cambios" (o su traducciÃ³n)
+                Text(
+                    if (isLoading) "Guardando..."
+                    else (Strings.buttonSave[language] ?: "Guardar cambios")
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // BotÃ³n para regresar a la lista de palabras
+            TextButton(onClick = { navController.popBackStack() }) {
+                Text(Strings.buttonBackToList[language] ?: "Volver a la lista")
+            }
+        }
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\editword\EditWordViewModel.kt:
+package com.fagir.fullytrilingual.ui.screens.editword
+
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.fagir.fullytrilingual.data.local.entities.Word
+import com.fagir.fullytrilingual.data.repository.WordRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+class EditWordViewModel(private val repository: WordRepository) : ViewModel() {
+
+    // Guardamos la palabra actual que estamos editando
+    private val _currentWord = MutableStateFlow<Word?>(null)
+    val currentWord: StateFlow<Word?> get() = _currentWord
+
+    // Controla si estamos realizando una operaciÃ³n que demora (cargando)
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> get() = _isLoading
+
+    // Carga la palabra desde la base de datos usando su ID y la asigna a _currentWord
+    fun loadWord(wordId: Int) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val word = repository.getWordById(wordId)
+                _currentWord.value = word
+                _isLoading.value = false
+                Log.d("EditWordViewModel", "Word loaded: $word")
+            } catch (e: Exception) {
+                Log.e("EditWordViewModel", "Error al cargar la palabra", e)
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Actualiza la palabra en la base de datos
+    fun updateWord(word: Word) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                repository.updateWord(word)
+                _isLoading.value = false
+                Log.d("EditWordViewModel", "Word updated: $word")
+            } catch (e: Exception) {
+                Log.e("EditWordViewModel", "Error al actualizar la palabra", e)
+                _isLoading.value = false
+            }
+        }
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\editword\EditWordViewModelFactory.kt:
+package com.fagir.fullytrilingual.ui.screens.editword
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.fagir.fullytrilingual.data.repository.WordRepository
+
+// FÃ¡brica para crear instancias de EditWordViewModel.
+// Se asegura de inyectar el repositorio correcto.
+class EditWordViewModelFactory(
+    private val repository: WordRepository
+) : ViewModelProvider.Factory {
+
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(EditWordViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return EditWordViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Clase de ViewModel desconocida")
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\home\HomeScreen.kt:
+package com.fagir.fullytrilingual.ui.screens.home
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.fagir.fullytrilingual.R
+import com.fagir.fullytrilingual.data.repository.WordRepository
+import com.fagir.fullytrilingual.ui.screens.wordlist.WordListViewModel
+import com.fagir.fullytrilingual.ui.screens.wordlist.WordListViewModelFactory
+import com.fagir.fullytrilingual.utils.strings.Strings
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(
+    // Navegador para moverse entre pantallas
+    navController: NavController,
+
+    // ViewModel donde guardamos el idioma seleccionado
+    homeViewModel: HomeViewModel = viewModel(),
+
+    // Repositorio que usamos para precargar la lista de palabras
+    repository: WordRepository
+) {
+    // 1) Montamos WordListViewModel sin usarlo directamente, para precargar datos en segundo plano
+    val dummyListViewModel: WordListViewModel = viewModel(
+        factory = WordListViewModelFactory(repository)
+    )
+    // No utilizamos dummyListViewModel aquÃ­, pero llama a getAllWords() en su init.
+
+    // 2) Observamos el idioma actual en HomeViewModel
+    val language = homeViewModel.selectedLanguage.collectAsState().value
+
+    // 3) Definimos la lista de idiomas disponibles
+    val languages = listOf(
+        "es" to "EspaÃ±ol",
+        "en" to "InglÃ©s",
+        "pt" to "PortuguÃ©s"
+    )
+
+    // Control para mostrar/ocultar el menÃº desplegable
+    var expanded by remember { mutableStateOf(false) }
+
+    // Column que estructura la pantalla principal
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(60.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
+    ) {
+        // LOGO de la app (imagen en drawable)
+        Image(
+            painter = painterResource(id = R.drawable.logo_fully),
+            contentDescription = "Logo FullyTrilingual",
+            modifier = Modifier.size(100.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Texto con el nombre de la aplicaciÃ³n
+        Text(
+            text = "FullyTrilingual",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        // TÃ­tulo para que el usuario escoja el idioma
+        Text(
+            text = Strings.selectLanguageHint[language] ?: "Selecciona un idioma",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Caja que contiene un TextField y el menÃº desplegable de idiomas
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
+            TextField(
+                value = languages.firstOrNull { it.first == language }?.second
+                    ?: (Strings.selectLanguageHint[language] ?: "Selecciona un idioma"),
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(0.8f),
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                shape = RoundedCornerShape(8.dp),
+                colors = TextFieldDefaults.textFieldColors(
+                    containerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Gray,
+                    unfocusedIndicatorColor = Color.Gray
+                )
+            )
+
+            // Lista desplegable con los idiomas
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                languages.forEach { (code, label) ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
+                            )
+                        },
+                        onClick = {
+                            // Actualiza el idioma en HomeViewModel
+                            homeViewModel.updateSelectedLanguage(code)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        // Espacio antes de los botones de abajo
+        Spacer(modifier = Modifier.height(170.dp))
+
+        // BotÃ³n para ir a agregar una nueva palabra
+        Button(
+            onClick = { navController.navigate("addWord/$language") },
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .padding(vertical = 8.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = Strings.goToAddWord[language] ?: "Ir a Agregar Palabra",
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+
+        // BotÃ³n para ver la lista de palabras
+        Button(
+            onClick = { navController.navigate("wordList") },
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .padding(vertical = 8.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = Strings.goToWordList[language] ?: "Ir a Lista de Palabras",
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\home\HomeViewModel.kt:
+package com.fagir.fullytrilingual.ui.screens.home
+
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * ViewModel que maneja el idioma seleccionado para la pantalla Home.
+ */
+class HomeViewModel : ViewModel() {
+
+    // Estado del idioma, por defecto "es" (espaÃ±ol).
+    private val _selectedLanguage = MutableStateFlow("es")
+    val selectedLanguage: StateFlow<String> = _selectedLanguage
+
+    init {
+        Log.d("HomeViewModel", "Inicializado con idioma: ${_selectedLanguage.value}")
+    }
+
+    /**
+     * Cambia el idioma y notifica a todas las pantallas
+     * que estÃ©n observando esta variable.
+     */
+    fun updateSelectedLanguage(language: String) {
+        Log.d("HomeViewModel", "Cambiando de ${_selectedLanguage.value} a $language")
+        _selectedLanguage.value = language
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\wordlist\WordListScreen.kt:
+package com.fagir.fullytrilingual.ui.screens.wordlist
+
+import android.util.Log
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.fagir.fullytrilingual.data.local.entities.Word
+import com.fagir.fullytrilingual.data.repository.WordRepository
+import com.fagir.fullytrilingual.ui.screens.home.HomeViewModel  // Para saber el idioma
+import com.fagir.fullytrilingual.utils.strings.Strings         // Para usar textos traducidos
+
+@Composable
+fun WordListScreen(
+    // Repositorio para manejar datos de palabras
+    repository: WordRepository,
+
+    // Controlador para navegar entre pantallas
+    navController: NavHostController
+) {
+    // ViewModel que maneja la lista de palabras
+    val viewModel: WordListViewModel = viewModel(
+        factory = WordListViewModelFactory(repository)
+    )
+
+    // ViewModel que maneja el idioma que se estÃ¡ usando
+    val homeViewModel: HomeViewModel = viewModel()
+    val language = homeViewModel.selectedLanguage.collectAsState().value
+
+    // Observamos la lista de palabras y la dibujamos en pantalla
+    val wordList = viewModel.wordList.collectAsState(initial = emptyList())
+
+    // Escuchamos el estado de la ruta actual del NavController
+    // para recargar la lista cada vez que regresemos a "wordList".
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+
+    LaunchedEffect(currentBackStackEntry) {
+        // Si la ruta actual es "wordList", volvemos a cargar
+        if (currentBackStackEntry?.destination?.route == "wordList") {
+            Log.d("WordListScreen", "Volvimos a WordList, recargamos los datos.")
+            viewModel.getAllWords()  // Me asegurÃ© de que sea 'public' en tu ViewModel
+        }
+    }
+
+    // Lista perezosa que va mostrando cada WordListItem
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        items(wordList.value) { word ->
+            WordListItem(
+                word = word,
+                language = language,
+                onEdit = {
+                    Log.d("WordListScreen", "Editando palabra con id: ${word.id}")
+                    navController.navigate("editWord/${word.id}")
+                },
+                onDelete = {
+                    Log.d("WordListScreen", "Eliminando palabra con id: ${word.id}")
+                    viewModel.deleteWord(word.id)
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Presenta la informaciÃ³n de cada Word y ofrece Ã­conos para editar o eliminar.
+ * Usa el idioma para mostrar etiquetas en ES/EN/PT.
+ */
+@Composable
+fun WordListItem(
+    // La palabra a mostrar
+    word: Word,
+
+    // Idioma actual para escoger las etiquetas
+    language: String,
+
+    // AcciÃ³n al pulsar el botÃ³n de editar
+    onEdit: () -> Unit,
+
+    // AcciÃ³n al pulsar el botÃ³n de eliminar
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .padding(8.dp)
+            .fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth()
+        ) {
+            // Zona donde mostramos la info de la palabra
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                //Text(text = "ID: ${word.id}")
+
+                // Etiquetas y valores de las palabras
+                Text(text = "${Strings.wordEsLabel[language] ?: "Palabra (ES)"}: ${word.wordEs}")
+                Text(text = "${Strings.wordEnLabel[language] ?: "Palabra (EN)"}: ${word.wordEn}")
+                Text(text = "${Strings.wordPtLabel[language] ?: "Palabra (PT)"}: ${word.wordPt}")
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Etiquetas y valores de las frases
+                Text(text = "${Strings.phraseEsLabel[language] ?: "Frase (ES)"}: ${word.phraseEs}")
+                Text(text = "${Strings.phraseEnLabel[language] ?: "Frase (EN)"}: ${word.phraseEn}")
+                Text(text = "${Strings.phrasePtLabel[language] ?: "Frase (PT)"}: ${word.phrasePt}")
+            }
+
+            // Fila con botones de editar y eliminar
+            Row {
+                // BotÃ³n para editar
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = Strings.editWordTitle[language] ?: "Editar palabra"
+                    )
+                }
+
+                // BotÃ³n para eliminar
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = Strings.buttonSave[language] ?: "Eliminar palabra"
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\wordlist\WordListViewModel.kt:
+package com.fagir.fullytrilingual.ui.screens.wordlist
+
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.fagir.fullytrilingual.data.local.entities.Word
+import com.fagir.fullytrilingual.data.repository.WordRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+class WordListViewModel(private val repository: WordRepository) : ViewModel() {
+
+    // Flujo que guarda la lista de palabras y avisa a la IU cuando hay cambios
+    private val _wordList = MutableStateFlow<List<Word>>(emptyList())
+    val wordList: StateFlow<List<Word>> get() = _wordList
+
+    init {
+        Log.d("WordListViewModel", "Inicializando WordListViewModel...")
+        getAllWords()
+    }
+
+    /**
+     * Carga todas las palabras desde la BD
+     * y actualiza el StateFlow para que la IU se recomponga.
+     * Se hace pÃºblica para poder llamarla al volver desde otras pantallas.
+     */
+    fun getAllWords() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val fetchedWords = repository.getAllWords()
+                _wordList.value = fetchedWords
+                Log.d("WordListViewModel", "Se cargaron ${fetchedWords.size} palabras.")
+            } catch (e: Exception) {
+                Log.e("WordListViewModel", "Error al obtener las palabras", e)
+            }
+        }
+    }
+
+    /**
+     * Elimina la palabra con el ID indicado y recarga la lista.
+     */
+    fun deleteWord(wordId: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repository.deleteWordById(wordId)
+                getAllWords()
+                Log.d("WordListViewModel", "Se eliminÃ³ la palabra con id: $wordId")
+            } catch (e: Exception) {
+                Log.e("WordListViewModel", "Error al eliminar la palabra", e)
+            }
+        }
+    }
+
+    /**
+     * (Opcional) Actualiza una palabra y recarga la lista.
+     * SerÃ­a Ãºtil si manejamos la ediciÃ³n aquÃ­.
+     */
+    fun updateWord(updatedWord: Word) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repository.updateWord(updatedWord)
+                getAllWords()
+                Log.d("WordListViewModel", "Se actualizÃ³ la palabra con id: ${updatedWord.id}")
+            } catch (e: Exception) {
+                Log.e("WordListViewModel", "Error al actualizar la palabra", e)
+            }
+        }
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\screens\wordlist\WordListViewModelFactory.kt:
+package com.fagir.fullytrilingual.ui.screens.wordlist
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.fagir.fullytrilingual.data.repository.WordRepository
+
+// FÃ¡brica para crear instancias de WordListViewModel.
+// Esto permite inyectar el repositorio de forma sencilla.
+class WordListViewModelFactory(private val repository: WordRepository) : ViewModelProvider.Factory {
+
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(WordListViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return WordListViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Clase de ViewModel desconocida")
+    }
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\theme\Color.kt:
+package com.fagir.fullytrilingual.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+val Purple80 = Color(0xFFD0BCFF)
+val PurpleGrey80 = Color(0xFFCCC2DC)
+val Pink80 = Color(0xFFEFB8C8)
+
+val Purple40 = Color(0xFF6650a4)
+val PurpleGrey40 = Color(0xFF625b71)
+val Pink40 = Color(0xFF7D5260)
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\theme\Theme.kt:
+package com.fagir.fullytrilingual.ui.theme
+
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+
+private val DarkColorScheme = darkColorScheme(
+    primary = Purple80,
+    secondary = PurpleGrey80,
+    tertiary = Pink80
+)
+
+private val LightColorScheme = lightColorScheme(
+    primary = Purple40,
+    secondary = PurpleGrey40,
+    tertiary = Pink40
+    // Puedes agregar o cambiar mÃ¡s colores aquÃ­ si gustas
+)
+
+/**
+ * Tema principal de la app.
+ * Se adapta segÃºn el modo oscuro o la versiÃ³n de Android (colores dinÃ¡micos en Android 12+).
+ */
+@Composable
+fun FullyTrilingualTheme(
+    // Indica si se usa el modo oscuro
+    darkTheme: Boolean = isSystemInDarkTheme(),
+
+    // Colores dinÃ¡micos, disponibles a partir de Android 12 (API 31)
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when {
+        // Si el dispositivo soporta colores dinÃ¡micos y la app los usa
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val context = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        // Si no, checamos si estÃ¡ en modo oscuro o claro
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+
+    // MaterialTheme aplica el esquema de colores y tipografÃ­as
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
+    )
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\ui\theme\Type.kt:
+package com.fagir.fullytrilingual.ui.theme
+
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+
+// Conjunto de estilos de tipografÃ­a para usar en la app.
+// AquÃ­ puedes modificar o agregar nuevos estilos segÃºn tus necesidades.
+val Typography = Typography(
+    // Estilo para textos principales (bodyLarge)
+    bodyLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp
+    )
+    /* Puedes sobrescribir otros estilos por defecto, como:
+    titleLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        letterSpacing = 0.sp
+    ),
+    labelSmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.5.sp
+    )
+    */
+)
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\utils\strings\Strings.kt:
+package com.fagir.fullytrilingual.utils.strings
+
+/**
+ * Este objeto guarda los textos de la app en varios idiomas.
+ *
+ * Cada propiedad es un map con las claves:
+ *   "es" -> texto en espaÃ±ol
+ *   "en" -> texto en inglÃ©s
+ *   "pt" -> texto en portuguÃ©s
+ *
+ * Si mÃ¡s adelante deseamos mÃ¡s idiomas, basta agregar su clave y traducciÃ³n.
+ */
+object Strings {
+
+    // Mensajes de la pantalla principal (HomeScreen)
+    val homeTitle = mapOf(
+        "es" to "Pantalla de Inicio",
+        "en" to "Home Screen",
+        "pt" to "Tela Inicial"
+    )
+
+    val selectLanguageHint = mapOf(
+        "es" to "Selecciona un idioma",
+        "en" to "Select a language",
+        "pt" to "Selecione um idioma"
+    )
+
+    val goToAddWord = mapOf(
+        "es" to "Ir a Agregar Palabra",
+        "en" to "Go to Add Word",
+        "pt" to "Ir para Adicionar Palavra"
+    )
+
+    val goToWordList = mapOf(
+        "es" to "Ir a Lista de Palabras",
+        "en" to "Go to Word List",
+        "pt" to "Ir para Lista de Palavras"
+    )
+
+    // Textos usados en la pantalla de agregar palabra (AddWordScreen)
+    val addWordTitle = mapOf(
+        "es" to "Agregar palabra nueva",
+        "en" to "Add new word",
+        "pt" to "Adicionar nova palavra"
+    )
+
+    val wordEsLabel = mapOf(
+        "es" to "Palabra (ES)",
+        "en" to "Word (ES)",
+        "pt" to "Palavra (ES)"
+    )
+
+    val wordEnLabel = mapOf(
+        "es" to "Palabra (EN)",
+        "en" to "Word (EN)",
+        "pt" to "Palavra (EN)"
+    )
+
+    val wordPtLabel = mapOf(
+        "es" to "Palabra (PT)",
+        "en" to "Word (PT)",
+        "pt" to "Palavra (PT)"
+    )
+
+    val phraseEsLabel = mapOf(
+        "es" to "Frase (ES)",
+        "en" to "Phrase (ES)",
+        "pt" to "Frase (ES)"
+    )
+
+    val phraseEnLabel = mapOf(
+        "es" to "Frase (EN)",
+        "en" to "Phrase (EN)",
+        "pt" to "Frase (EN)"
+    )
+
+    val phrasePtLabel = mapOf(
+        "es" to "Frase (PT)",
+        "en" to "Phrase (PT)",
+        "pt" to "Frase (PT)"
+    )
+
+    val buttonSave = mapOf(
+        "es" to "Guardar",
+        "en" to "Save",
+        "pt" to "Salvar"
+    )
+
+    val buttonBackToList = mapOf(
+        "es" to "Volver a la lista",
+        "en" to "Back to list",
+        "pt" to "Voltar Ã  lista"
+    )
+
+    val errorFieldsEmpty = mapOf(
+        "es" to "Por favor, complete los campos obligatorios.",
+        "en" to "Please fill in the required fields.",
+        "pt" to "Por favor, preencha os campos obrigatÃ³rios."
+    )
+
+    val successWordSaved = mapOf(
+        "es" to "Palabra guardada correctamente.",
+        "en" to "Word saved successfully.",
+        "pt" to "Palavra salva com sucesso."
+    )
+
+    // Textos para la pantalla de editar palabra (EditWordScreen)
+    val editWordTitle = mapOf(
+        "es" to "Editar palabra",
+        "en" to "Edit word",
+        "pt" to "Editar palavra"
+    )
+
+    val successWordUpdated = mapOf(
+        "es" to "Cambios guardados correctamente.",
+        "en" to "Changes saved successfully.",
+        "pt" to "AlteraÃ§Ãµes salvas com sucesso."
+    )
+
+}
+
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\utils\Helpers.kt:
+package com.fagir.fullytrilingual.utils
+
+class Helpers {
+}
+
+
+
+---------------------------
+* CÃ³digo para D:\06MASW-A1\FullyTrilingual\app\src\main\java\com\fagir\fullytrilingual\MainActivity.kt:
+package com.fagir.fullytrilingual
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.Composable
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.fagir.fullytrilingual.data.local.database.AppDatabase
+import com.fagir.fullytrilingual.data.repository.WordRepository
+import com.fagir.fullytrilingual.ui.screens.addword.AddWordScreen
+import com.fagir.fullytrilingual.ui.screens.editword.EditWordScreen
+import com.fagir.fullytrilingual.ui.screens.home.HomeScreen
+import com.fagir.fullytrilingual.ui.screens.wordlist.WordListScreen
+import com.fagir.fullytrilingual.ui.theme.FullyTrilingualTheme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // 1) Obtenemos la instancia de la base de datos y el repositorio
+        val database = AppDatabase.getDatabase(this)
+        val repository = WordRepository(database.wordDao())
+
+        // 2) Iniciamos la interfaz de usuario con Jetpack Compose
+        setContent {
+            FullyTrilingualTheme {
+                val navController = rememberNavController()
+                AppNavHost(navController = navController, repository = repository)
+            }
+        }
+    }
+}
+
+@Composable
+fun AppNavHost(
+    // Controlador para manejar la navegaciÃ³n
+    navController: NavHostController,
+
+    // Repositorio para trabajar con la base de datos
+    repository: WordRepository
+) {
+    NavHost(navController = navController, startDestination = "home") {
+
+        // Pantalla principal o de inicio
+        composable("home") {
+            // Enviamos el repositorio a HomeScreen para â€œmontarâ€ el WordListViewModel (hack).
+            HomeScreen(
+                navController = navController,
+                repository = repository
+            )
+        }
+
+        // Pantalla para agregar una palabra, recibiendo el idioma seleccionado
+        composable("addWord/{language}") { backStackEntry ->
+            val language = backStackEntry.arguments?.getString("language") ?: "es"
+            AddWordScreen(
+                navController = navController,
+                language = language,
+                repository = repository
+            )
+        }
+
+        // Pantalla que muestra la lista de palabras guardadas
+        composable("wordList") {
+            WordListScreen(
+                repository = repository,
+                navController = navController
+            )
+        }
+
+        // Pantalla para editar una palabra especÃ­fica:
+        // se recibe "wordId" seleccionado en WordListScreen
+        composable("editWord/{wordId}") { backStackEntry ->
+            val wordIdString = backStackEntry.arguments?.getString("wordId") ?: "0"
+            val wordId = wordIdString.toInt()
+            EditWordScreen(
+                navController = navController,
+                wordId = wordId,
+                repository = repository
+            )
+        }
+    }
+}
+
+
+
+
+CÃ³digo para los archivos .kt en el directorio res y sus subdirectorios:
+Se entregaron 24 archivos con cÃ³digo.
+Las rutas de los archivos entregados son:
+.\java\com\fagir\fullytrilingual\data\local\dao\WordDao.kt
+.\java\com\fagir\fullytrilingual\data\local\database\AppDatabase.kt
+.\java\com\fagir\fullytrilingual\data\local\entities\Word.kt
+.\java\com\fagir\fullytrilingual\data\local\seed\PrepopulateData.kt
+.\java\com\fagir\fullytrilingual\data\repository\WordRepository.kt
+.\java\com\fagir\fullytrilingual\ui\components\WordInputField.kt
+.\java\com\fagir\fullytrilingual\ui\components\WordListItem.kt
+.\java\com\fagir\fullytrilingual\ui\screens\addword\AddWordScreen.kt
+.\java\com\fagir\fullytrilingual\ui\screens\addword\AddWordViewModel.kt
+.\java\com\fagir\fullytrilingual\ui\screens\addword\AddWordViewModelFactory.kt
+.\java\com\fagir\fullytrilingual\ui\screens\editword\EditWordScreen.kt
+.\java\com\fagir\fullytrilingual\ui\screens\editword\EditWordViewModel.kt
+.\java\com\fagir\fullytrilingual\ui\screens\editword\EditWordViewModelFactory.kt
+.\java\com\fagir\fullytrilingual\ui\screens\home\HomeScreen.kt
+.\java\com\fagir\fullytrilingual\ui\screens\home\HomeViewModel.kt
+.\java\com\fagir\fullytrilingual\ui\screens\wordlist\WordListScreen.kt
+.\java\com\fagir\fullytrilingual\ui\screens\wordlist\WordListViewModel.kt
+.\java\com\fagir\fullytrilingual\ui\screens\wordlist\WordListViewModelFactory.kt
+.\java\com\fagir\fullytrilingual\ui\theme\Color.kt
+.\java\com\fagir\fullytrilingual\ui\theme\Theme.kt
+.\java\com\fagir\fullytrilingual\ui\theme\Type.kt
+.\java\com\fagir\fullytrilingual\utils\strings\Strings.kt
+.\java\com\fagir\fullytrilingual\utils\Helpers.kt
+.\java\com\fagir\fullytrilingual\MainActivity.kt
+
+Se encontraron 0 archivos sin cÃ³digo.
+No se encontraron archivos sin cÃ³digo.
