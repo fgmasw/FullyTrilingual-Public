@@ -31,7 +31,7 @@ fun WordListItem(
         ) {
             // Columna que presenta todos los datos de la palabra
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "ID: ${word.id}", style = MaterialTheme.typography.bodyMedium)
+                //Text(text = "ID: ${word.id}", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(text = "Word (ES): ${word.wordEs}")

@@ -107,7 +107,7 @@ fun WordListItem(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                Text(text = "ID: ${word.id}")
+                //Text(text = "ID: ${word.id}")
 
                 // Etiquetas y valores de las palabras
                 Text(text = "${Strings.wordEsLabel[language] ?: "Palabra (ES)"}: ${word.wordEs}")
